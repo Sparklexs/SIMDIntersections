@@ -3,19 +3,19 @@
 #define INTERSECTIONFACTORY_H_
 
 #include "common.h"
-#include "intersection.h"
-#include "partitionedintersection.h"
-#include "hscalableintersection.h"
-#include "gallopingintersection.h"
 #include "binarysearchintersection.h"
-#include "hybridintersection.h"
-#include "mediumintersection.h"
-#include "widevectorintersection.h"
 #include "branchless.h"
-#include "match.h"
-#include "thomaswu.h"
+#include "gallopingintersection.h"
+#include "hscalableintersection.h"
+#include "hybridintersection.h"
 #include "inoueetal.h"
+#include "intersection.h"
+#include "match.h"
+#include "mediumintersection.h"
+#include "partitionedintersection.h"
 #include "tetzank.h"
+#include "thomaswu.h"
+#include "widevectorintersection.h"
 
 
 
@@ -55,7 +55,7 @@ std::map<std::string,intersectionfunction> realinitializefactory() {
     schemes[ "scalarnate" ] =  nate_scalar;
     schemes[ "scalarnatewg" ] =  nate_scalarwithoutgoto;
 
-    schemes[ "scalar1sgalloping" ] =  onesidedgallopingintersection;
+    schemes[ "scalar1sgalloping" ] =  onesidedGallopingIntersection;
     schemes[ "v1" ] =  v1;
     schemes[ "v3" ] =  v3;
 #ifdef __AVX2__
@@ -101,8 +101,8 @@ std::map<std::string,cardinalityintersectionfunction> initializefactory() {
     schemes[ "widevector" ] =  widevector_cardinality_intersect;
     schemes[ "widevectorleo" ] =  leowidevector_cardinality_intersect;
 
-    schemes[ "scalargalloping" ] =  frogintersectioncardinality;
-    schemes[ "scalar1sgalloping" ] =  onesidedgallopingintersectioncardinality;
+    schemes[ "scalargalloping" ] =  frogIntersectionCardinality;
+    schemes[ "scalar1sgalloping" ] =  onesidedGallopingIntersectionCardinality;
     schemes[ "scalarnate" ] =  nate_count_scalar;
 
     schemes[ "hssimd" ] =  highlyscalablewordpresscom::cardinality_intersect_SIMD;

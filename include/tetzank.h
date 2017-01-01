@@ -331,6 +331,7 @@ size_t tetzank_intersect_vector_avx2(const uint32_t *list1, size_t size1, const 
 		__m256 rot3 = _mm256_permute_ps((__m256)v_b, cyclic_shift2);
 		__m256i cmp_mask4 = _mm256_cmpeq_epi32(v_a, (__m256i)rot3);
 
+		// sxs: exchange high 256-bits and low 256-bits
 		__m256 rot4 = _mm256_permute2f128_ps((__m256)v_b, (__m256)v_b, 1);
 
 		__m256i cmp_mask5 = _mm256_cmpeq_epi32(v_a, (__m256i)rot4);

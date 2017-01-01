@@ -151,6 +151,8 @@ size_t scalar_branchless_cached2(const uint32_t *A, size_t lenA,
         IACA_START;
 #endif
 
+        // XXX:(sxs) what if there are only one element left
+        // and A[2] will definitely overflow
         uint32_t nextNextA = A[2];
         uint32_t nextNextB = B[2];
 

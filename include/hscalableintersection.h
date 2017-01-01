@@ -38,6 +38,7 @@ size_t cardinality_intersect_scalar(const uint32_t *A, const size_t s_a,
 /**
  * Taken almost verbatim from http://highlyscalable.wordpress.com/2012/06/05/fast-intersection-sorted-lists-sse/
  * (just for comparison)
+ * sxs: only difference with cardinality is not temporary variable @counter
  */
 size_t intersect_scalar(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b, uint32_t * out) {
@@ -62,16 +63,16 @@ size_t intersect_scalar(const uint32_t *A, const size_t s_a,
  * http://highlyscalable.wordpress.com/2012/06/05/fast-intersection-sorted-lists-sse/
  */
 const static __m128i shuffle_mask[16] = {
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,7,6,5,4),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,11,10,9,8),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,11,10,9,8,3,2,1,0),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,11,10,9,8,7,6,5,4),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,15,14,13,12),
-        _mm_set_epi8(15,14,13,12,11,10,9,8,15,14,13,12,3,2,1,0),
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),//0000
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),//0001
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,7,6,5,4),//0010
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),//0011
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,11,10,9,8),//0100
+        _mm_set_epi8(15,14,13,12,11,10,9,8,11,10,9,8,3,2,1,0),//0101
+        _mm_set_epi8(15,14,13,12,11,10,9,8,11,10,9,8,7,6,5,4),//0110
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),//0111
+        _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,15,14,13,12),//1000
+        _mm_set_epi8(15,14,13,12,11,10,9,8,15,14,13,12,3,2,1,0),//1001
         _mm_set_epi8(15,14,13,12,11,10,9,8,15,14,13,12,7,6,5,4),
         _mm_set_epi8(15,14,13,12,15,14,13,12,7,6,5,4,3,2,1,0),
         _mm_set_epi8(15,14,13,12,11,10,9,8,15,14,13,12,11,10,9,8),
@@ -108,6 +109,9 @@ const static __m128i shuffle_mask[16] = {
 
 /**
  * Taken almost verbatim from http://highlyscalable.wordpress.com/2012/06/05/fast-intersection-sorted-lists-sse/
+ * sxs: difference with dan is that here only one shuffle mask it used to recursively shuffle
+ * the permuted array, while dan prepares three masks to shuffle the origin array three
+ * times
  */
 size_t cardinality_intersect_SIMD(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b) {
@@ -177,6 +181,7 @@ size_t cardinality_intersect_SIMD(const uint32_t *A, const size_t s_a,
  * Taken almost verbatim from http://highlyscalable.wordpress.com/2012/06/05/fast-intersection-sorted-lists-sse/
  *
  * It is not safe for out to be either A or B.
+ * sxs: only difference with cardinality is not temporary variable @counter
  */
 size_t intersect_SIMD(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b, uint32_t * out) {

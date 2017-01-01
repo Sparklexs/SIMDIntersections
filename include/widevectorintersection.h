@@ -27,6 +27,10 @@ static size_t __simd4by4(const __m128i v_a, const __m128i v_b) {
     return _mm_popcnt_u32(mask); // a number of elements is a weight of the mask
 
 }
+// sxs: for each i8 in __m128i, if its msb equals 1, then dst[i8] will be 0
+// otherwise the corresponding element will be copied to dst.
+// for example, 1001 means the first and the last element are matched
+// mask should be [0,0,0,0,0,0,0,0,15,14,13,12,3,2,1,0]
 const static __m128i shuffle_mask16[16] = {
         _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127),
         _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,3,2,1,0),
@@ -37,7 +41,7 @@ const static __m128i shuffle_mask16[16] = {
         _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,11,10,9,8,7,6,5,4),
         _mm_set_epi8(-127,-127,-127,-127,11,10,9,8,7,6,5,4,3,2,1,0),
         _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,-127,15,14,13,12),
-        _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,15,14,13,12,3,2,1,0),
+        _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,15,14,13,12,3,2,1,0),//1001
         _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,15,14,13,12,7,6,5,4),
         _mm_set_epi8(-127,-127,-127,-127,15,14,13,12,7,6,5,4,3,2,1,0),
         _mm_set_epi8(-127,-127,-127,-127,-127,-127,-127,-127,15,14,13,12,11,10,9,8),
@@ -77,6 +81,9 @@ static size_t __simd4by4(const __m128i v_a, const __m128i v_b, uint32_t ** out) 
 
 /**
  * Vectorized version by D. Lemire.
+ * sxs: the initial two while-loops ensure intersecting two real overlapped ranges
+ * and inside the third while-loop, after we intersect two blocks for each set,
+ * we only advance the small one a step of block size.
  */
 size_t widevector_cardinality_intersect(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b) {
@@ -112,7 +119,11 @@ size_t widevector_cardinality_intersect(const uint32_t *A, const size_t s_a,
 
 
                     // higher 16 bits are all equal
-                    //0b10101010 = 170
+                    // 0x10101010 = 170
+            		// sxs: left shift @v_aa 2 bytes, so the 16-bits integers
+            		// are stored in high-16 bits, then we blend them together,
+            		// @bva will include 8 staggered 16-bits integers, namely
+            		// (v_aa[3],v_a[3]),(v_aa[2],v_a[2]),(v_aa[1],v_a[1]),(v_aa[0],v_a[0])
                     const __m128i bva = _mm_blend_epi16(v_a,
                             _mm_slli_si128(v_aa, 2), 170);
                     const __m128i bvb = _mm_blend_epi16(v_b,
@@ -182,6 +193,10 @@ size_t widevector_cardinality_intersect(const uint32_t *A, const size_t s_a,
 
 /**
  * Vectorized version by D. Lemire.
+ * sxs: the difference with widevector_cardinality_intersect is
+ * here use home-made blend function rather than intel intrinsics
+ * but there are some flaws inside since @bva and @bvb may not be
+ * used in every loop, they should be updated in side if-determination.
  */
 size_t widevector2_intersect(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b, uint32_t * out) {
@@ -219,7 +234,7 @@ size_t widevector2_intersect(const uint32_t *A, const size_t s_a,
                     and (((B[i_b] - 1) ^ A[i_a + BlockSize - 1]) >> 16 == 0)
                  ) {
                     // higher 16 bits are all equal
-                    //0b10101010 = 170
+                    //0x10101010 = 170
                     const __m128i res_v = _mm_cmpistrm(
                             bva,
                             bvb,
@@ -241,6 +256,7 @@ size_t widevector2_intersect(const uint32_t *A, const size_t s_a,
 
             }
 
+            // @bva and @bvb should be updated inside if rather than here
             const uint32_t a_max = A[i_a + BlockSize - 1];
             //const uint32_t b_max = B[i_b + 3];
             if (a_max <= B[i_b + BlockSize - 1]) {
@@ -286,6 +302,8 @@ size_t widevector2_intersect(const uint32_t *A, const size_t s_a,
 
 /**
  * Vectorized version by D. Lemire.
+ * sxs: difference with widevector2 is the proper positioned
+ * @bva and @bvb
  */
 size_t widevector_intersect(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b, uint32_t * out) {
@@ -321,7 +339,7 @@ size_t widevector_intersect(const uint32_t *A, const size_t s_a,
                     and (((B[i_b] - 1) ^ A[i_a + BlockSize - 1]) >> 16 == 0)
                  ) {
                     // higher 16 bits are all equal
-                    //0b10101010 = 170
+                    //0x10101010 = 170
                     __m128i bva = __pack_epu32( v_a,v_aa );
                     __m128i bvb = __pack_epu32( v_b,v_bb );
                     const __m128i res_v = _mm_cmpistrm(
@@ -421,10 +439,10 @@ size_t leowidevector_cardinality_intersect(const uint32_t *A, const size_t s_a,
         v_bb = _mm_load_si128((__m128i *) &B[i_b + HalfBlockSize]);
 
         while (true) {
-
+        	// sxs: clever way to compare high 16-bits
             if (A[i_a + BlockSize - 1] < B[i_b] + 65536 and
                 B[i_b + BlockSize - 1] < A[i_a] + 65536 ) {
-                    //0b10101010 = 170
+                    //0x10101010 = 170
                     const __m128i bva = _mm_blend_epi16(v_a,
                             _mm_slli_si128(v_aa, 2), 170);
                     const __m128i bvb = _mm_blend_epi16(v_b,
@@ -489,7 +507,8 @@ size_t leowidevector_cardinality_intersect(const uint32_t *A, const size_t s_a,
  *
  * WARNING: Does not give the right answer if
  * the integers contain multiples of 1<<16.
- *
+ * sxs: home-made blend function, positioned the right place
+ * clever way to compare high 16-bits
  */
 size_t leowidevector_intersect(const uint32_t *A, const size_t s_a,
         const uint32_t *B, const size_t s_b, uint32_t * out) {

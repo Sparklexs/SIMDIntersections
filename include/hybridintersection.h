@@ -1,13 +1,13 @@
 #ifndef HYBRIDINTERSECTION_H_
 #define HYBRIDINTERSECTION_H_
 
-#include "intersection.h"
-#include "gallopingintersection.h"
 #include "binarysearchintersection.h"
+#include "gallopingintersection.h"
+#include "hscalableintersection.h"
+#include "intersection.h"
+#include "match.h"
 #include "mediumintersection.h"
 #include "widevectorintersection.h"
-#include "hscalableintersection.h"
-#include "match.h"
 size_t danielshybridintersectioncardinality(const uint32_t * set1,
         const size_t length1, const uint32_t * set2, const size_t length2) {
         if ((200 * length1 < length2) or (200 * length2 < length1)) {

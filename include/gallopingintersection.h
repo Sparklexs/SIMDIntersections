@@ -19,21 +19,23 @@
  * If none can be found, return array.length.
  * From code by O. Kaser.
  */
-static size_t __frogadvanceUntil(const uint32_t * array, const size_t pos,
-        const size_t length, const size_t min) {
-    size_t lower = pos + 1;
+static size_t __frogadvanceUntil(const uint32_t * array, const size_t start,
+        const size_t end, const size_t min) {
+    size_t lower = start + 1;
 
     // special handling for a possibly common sequential case
-    if ((lower >= length) or (array[lower] >= min)) {
+    if ((lower >= end) or (array[lower] >= min)) {
         return lower;
     }
 
     size_t spansize = 1; // could set larger
     // bootstrap an upper limit
 
-    while ((lower + spansize < length) and (array[lower + spansize] < min))
+    // sxs: here spansize is enlarged to the maximum where its corresponding
+    // element is geq min
+    while ((lower + spansize < end) and (array[lower + spansize] < min))
         spansize *= 2;
-    size_t upper = (lower + spansize < length) ? lower + spansize : length - 1;
+    size_t upper = (lower + spansize < end) ? lower + spansize : end - 1;
 
     // maybe we are lucky (could be common case when the seek ahead expected to be small and sequential will otherwise make us look bad)
     //if (array[upper] == min) {
@@ -41,7 +43,7 @@ static size_t __frogadvanceUntil(const uint32_t * array, const size_t pos,
     //}
 
     if (array[upper] < min) {// means array has no item >= min
-        return length;
+        return end;
     }
 
     // we know that the next-smallest span was too small
@@ -66,7 +68,7 @@ static size_t __frogadvanceUntil(const uint32_t * array, const size_t pos,
  * EXPERIMENTAL VERSION
  *
  * This is often called galloping or exponential search.
- *
+ * sxs: only difference is it assumes gallop may encounter the right value
  * Used by frogintersectioncardinality below
  *
  * Based on binary search...
@@ -122,7 +124,7 @@ static size_t __frogadvanceUntil_experimental(const uint32_t * array, const size
 /**
  * based on galloping
  */
-size_t frogintersectioncardinality(const uint32_t * set1, const size_t length1,
+size_t frogIntersectionCardinality(const uint32_t * set1, const size_t length1,
         const uint32_t * set2, const size_t length2) {
     if ((0 == length1) or (0 == length2))
         return 0;
@@ -154,10 +156,10 @@ size_t frogintersectioncardinality(const uint32_t * set1, const size_t length1,
 }
 
 
-size_t onesidedgallopingintersectioncardinality(const uint32_t * smallset,
+size_t onesidedGallopingIntersectionCardinality(const uint32_t * smallset,
         const size_t smalllength, const uint32_t * largeset,
         const size_t largelength) {
-    if(largelength < smalllength) return onesidedgallopingintersectioncardinality(largeset,largelength,smallset,smalllength);
+    if(largelength < smalllength) return onesidedGallopingIntersectionCardinality(largeset,largelength,smallset,smalllength);
     if (0 == smalllength)
         return 0;
     size_t answer = 0;
@@ -188,10 +190,10 @@ size_t onesidedgallopingintersectioncardinality(const uint32_t * smallset,
 }
 
 
-size_t onesidedgallopingintersection(const uint32_t * smallset,
+size_t onesidedGallopingIntersection(const uint32_t * smallset,
         const size_t smalllength, const uint32_t * largeset,
         const size_t largelength, uint32_t * out) {
-    if(largelength < smalllength) return onesidedgallopingintersection(largeset,largelength,smallset,smalllength,out);
+    if(largelength < smalllength) return onesidedGallopingIntersection(largeset,largelength,smallset,smalllength,out);
     if (0 == smalllength)
         return 0;
     const uint32_t * const initout(out);

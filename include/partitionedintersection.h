@@ -351,6 +351,8 @@ size_t cardinality_intersect_partitioned(const uint16_t *A, const uint16_t *B,
     size_t counter = 0;
     while (i_a < s_a && i_b < s_b) {
         if (A[i_a] < B[i_b]) {
+        	// sxs: here '+1' is caused by the fact that stored value
+        	// of partition length is actually the value-1
             i_a += static_cast<size_t> (A[i_a + 1]) + 2 + 1;
         } else if (B[i_b] < A[i_a]) {
             i_b += static_cast<size_t> (B[i_b + 1]) + 2 + 1;

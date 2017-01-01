@@ -243,6 +243,7 @@ size_t natedan_count_medium(const uint32_t *rare, const size_t lenRare,
     const uint32_t *stopRare = rare + lenRare - rarespace;
     if (freq > stopFreq) {
         return nate_count_scalar(freq, lenFreq, rare, lenRare);
+//        goto FINISH_SCALAR;
     }
     uint32_t maxFreq = freq[7 * veclen + vecmax];
     vec M0, M1, M2, M3, M4, M5, M6, M7;
@@ -265,6 +266,10 @@ size_t natedan_count_medium(const uint32_t *rare, const size_t lenRare,
     for (; rare < stopRare; ++rare) {
         const uint32_t matchRare = *rare;//nextRare;
         const vec Match = _mm_set1_epi32(matchRare);
+        // sxs: the following seems like can be further folded
+        // but Lemire did this to avoid too much copy operation
+        // of M0~M7, since if-branch can be skipped, but while
+        // cannot.
         if (maxFreq < matchRare) { // if no match possible
             freq += veclen * 8; // advance 8 vectors
             if (freq > stopFreq)
@@ -286,6 +291,7 @@ size_t natedan_count_medium(const uint32_t *rare, const size_t lenRare,
             M7 = _mm_load_si128((vec *) freq + 7);
 
         }
+        // sxs: found possible matchs in current range
         const vec Q0 = _mm_or_si128(_mm_cmpeq_epi32(M0, Match),
                 _mm_cmpeq_epi32(M1, Match));
         const vec Q1 = _mm_or_si128(_mm_cmpeq_epi32(M2, Match),
@@ -346,6 +352,7 @@ size_t natedanalt_count_medium(const uint32_t *rare, const size_t lenRare,
             maxFreq = freq[veclen * 7 + vecmax];
         }
         vec F0;
+        // sxs: that's how medium get its name
         if(freq[veclen * 3 + vecmax] < matchRare  ) {
             const vec Q2 = _mm_or_si128(_mm_cmpeq_epi32(_mm_load_si128((vec *) freq + 4), Match),
                             _mm_cmpeq_epi32(_mm_load_si128((vec *) freq + 5), Match));
@@ -575,6 +582,8 @@ size_t danfar_medium(const uint32_t *rare, const size_t lenRare,
 
 /**
  * Version hacked by D. Lemire, original by Nathan Kurz
+ * sxs: only difference is the last step which zero-tests the mask
+ * _mm_testz_si128 or _mm_movemask_epi8
  */
 size_t danfar_medium_mov(const uint32_t *rare, const size_t lenRare,
         const uint32_t *freq, const size_t lenFreq, uint32_t * out) {
@@ -969,6 +978,10 @@ size_t SIMDgalloping(const uint32_t *rare, const size_t lenRare,
             }
             while (freq[veclen * offset * 32 + veclen * 31 + vecmax]
                     < matchRare) { // if no match possible
+            	// sxs: keep on doubling the offset until we find the
+            	// range [offset/2,offset] where the match may fall into.
+            	// in case offset*2 exceeds the boundary, it will be fixed
+            	// to the last stopFreq
                 if (freq + veclen * (2 * offset ) * 32 <= stopFreq) {
                     offset *= 2;
                 } else if (freq + veclen * (offset + 1) * 32 <= stopFreq) {

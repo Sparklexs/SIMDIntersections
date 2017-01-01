@@ -16,6 +16,7 @@ typedef size_t (*intersectionfunction)(const uint32_t * set1,
 typedef size_t (*cardinalityintersectionfunction)(const uint32_t * set1,
         const size_t length1, const uint32_t * set2, const size_t length2);
 
+// sxs: part means the integer are 16-bits
 typedef size_t (*cardinalityintersectionfunctionpart)(const uint16_t *A,
         const uint16_t *B, const size_t s_a, const size_t s_b);
 

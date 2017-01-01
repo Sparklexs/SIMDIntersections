@@ -67,7 +67,9 @@ Intersection_find_simdgallop_v2 (UINT4 goal, const UINT4 *target, long ntargets)
 long
 Intersection_find_simdgallop_v3 (UINT4 goal, const UINT4 *target, long ntargets);
 
-
+// sxs: use a flag @foundp to indicate whether @goal is found out
+// however, the upper function @compute_intersection_flagged doesn't include overflow
+// judgment.
 typedef long (*flaggedintersectionfindfunction)(int *foundp, UINT4 goal, const UINT4 *target, long ntargets);
 
 long
@@ -106,6 +108,11 @@ compute_intersection_flagged (const uint32_t * rare,
       }
       freq += pos;
       lenFreq -= pos;
+      // XXX: sxs: the following codes are missing
+      /*
+       * if(lenFreq <= 0)
+       * break;
+       */
     }
   return (out - init_out);
 }

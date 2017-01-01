@@ -70,6 +70,8 @@ long Intersection_find_gallop(UINT4 goal, const UINT4 *target, long ntargets) {
     }
 
     /* Binary search */
+    // sxs: seems like it forgets to
+    // process the situation where target[midi] equals.
     while (lowi < highi) {
         midi = (lowi + highi) / 2;
         if (target[midi] < goal) {
@@ -111,6 +113,10 @@ long Intersection_find_v1(UINT4 goal, const UINT4 *target, long ntargets) {
         }
 
         Match = _mm_set1_epi32(goal - 2147483648U);
+        // sxs: namely compare less-than 'target - 2^31' and 'goal -2^31'
+        // then zero-right shift 31(27) bits and unite the result
+        // don't know why '_mm_srli_epi32' shows up here, the changing
+        // shift bits (31,27) have nothing to do with the result.
         F0 = _mm_or_si128(
                 _mm_srli_epi32(
                         _mm_cmplt_epi32(
@@ -2799,6 +2805,8 @@ long Intersection_find_v3_cmpeq(int *foundp, UINT4 goal, const UINT4 *target,
 /* If goal exists, then returns its index in the target and returns
  *foundp = 1.  But if goal does not exist, then returns some index
  before the next larger value and returns *foundp = 0. */
+// sxs: find no difference except the final part where dermining the
+// position of matched element.
 long Intersection_truefind_v3_cmpeq_scalar(int *foundp, UINT4 goal,
         const UINT4 *target, long ntargets) {
     const UINT4 *end_target, *stop_target, *init_target;

@@ -76,6 +76,8 @@ public:
         while (endbyte > inbyte) {
             inbyte = decode(inbyte, val);
             // if the last value of the current block is too small, skip the block entirely
+            // sxs: wonder why @x has to shift forth and back without any meaning
+            // @x indicates the index of the first element of the current block
             if (otherlarger.highbuffer[x >> otherlarger.BlockSizeLog].first < val) {
                 do {
                     x = ((x >> otherlarger.BlockSizeLog) + 1) << otherlarger.BlockSizeLog;

@@ -14,14 +14,16 @@ using namespace std;
 
 /**
  * unsatured packing.
+ * sxs: namely pack 8 32-bit integers into 16 16-bit integers
+ * only preserve their low-16 bits.
  */
 __attribute__((always_inline))
-inline __m128i __pack_epu32( __m128i hi, __m128i lo ) {
+inline __m128i __pack_epu32( __m128i lo, __m128i hi ) {
     const static __m128i mask =
         _mm_set_epi8(0,0,-1,-1,0,0,-1,-1,0,0,-1,-1,0,0,-1,-1);
-    hi = _mm_and_si128( hi, mask );
     lo = _mm_and_si128( lo, mask );
-    return _mm_packus_epi32( hi, lo );
+    hi = _mm_and_si128( hi, mask );
+    return _mm_packus_epi32( lo, hi );
 }
 
 /**

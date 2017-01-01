@@ -88,6 +88,10 @@
 
 					// TODO: Any way to figure how to do this without having to copy registers?
 					// If we can, that would free up more registers when we implement unrolling.
+					// sxs: here shows some differences against the paper of inoueetal.
+					// First, they compare two bytes rather than one to reduce false positive
+					// alert; second, they don't use this kind of round-robin comparison which
+					// comes from hscalableintersection
 					__m128i v_as = v_a;
 					__m128i v_bs = v_b;
 
