@@ -94,6 +94,9 @@ size_t inverse_partition(uint32_t *A, const size_t /*s_a*/, const uint16_t *R,
  * From Schlegel et al., Fast Sorted-Set Intersection using SIMD Instructions
  *
  * Optimized  by D. Lemire on April 30th 2013
+ *
+ * sxs: the following two functions work for the real intersection methods
+ * they only compare the lower 16-bits when the upper 16-bits are equal
  */
 static size_t cardinality_intersect_vector16(const uint16_t *A,
         const uint16_t *B, const size_t s_a, const size_t s_b/*, uint16_t *C*/) {
@@ -152,6 +155,8 @@ static size_t cardinality_intersect_vector16(const uint16_t *A,
  * From Schlegel et al., Fast Sorted-Set Intersection using SIMD Instructions
  *
  * Optimized by D. Lemire on May 3rd 2013
+ * sxs: add one conditioning where "(A[i_a] == 0) or (B[i_b] == 0)" because
+ * the lower bits are likely to be 0
  */
 static size_t faster_cardinality_intersect_vector16(const uint16_t *A,
         const uint16_t *B, const size_t s_a, const size_t s_b/*, uint16_t *C*/) {

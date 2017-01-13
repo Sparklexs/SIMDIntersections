@@ -155,7 +155,7 @@ size_t frogIntersectionCardinality(const uint32_t * set1, const size_t length1,
 
 }
 
-
+// sxs: only execute skip on the longer set (without watching)
 size_t onesidedGallopingIntersectionCardinality(const uint32_t * smallset,
         const size_t smalllength, const uint32_t * largeset,
         const size_t largelength) {

@@ -160,8 +160,8 @@ int main(int argc, char **argv) {
 			<< endl << endl;
 
 	std::cout << "is\t" << "bpi\t\t";
-	for (auto ele : myschemes)
-		std::cout << ele.first << "\t";
+//	for (auto ele : myschemes)
+//		std::cout << ele.first << "\t";
 	std::cout << std::endl;
 
 	for (uint32_t gap = 0; gap + S <= MaxBit; gap += 1) {
@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
 							data[2 * k + 1].size() : data[2 * k].size();
 		}
 
-		cout << std::fixed << std::setprecision(3)
+		cout << "\e[31m" << std::fixed << std::setprecision(3)
 				<< static_cast<double>(intersize)
 						/ static_cast<double>(smallestsize) << "\t";
 		cout.flush();
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
 			}
 
 		}
-		cout << "\t";
+		cout << "\n\e[0m";
 		cout.flush();
 		size_t maxsize = 0;
 		for (auto x : data)
@@ -356,9 +356,10 @@ int main(int argc, char **argv) {
 
 			}
 			time = z.split();
-			cout << "(" + algo.first + ")" << std::setprecision(0)
+			cout << std::setw(10) << "(" + algo.first + ")" << std::setw(4)
+					<< std::setprecision(0) << "\e[32m"
 					<< static_cast<double>(volume) / static_cast<double>(time)
-					<< "\t";
+					<< "\e[0m  ";
 			cout.flush();
 		}
 

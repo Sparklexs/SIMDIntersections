@@ -49,6 +49,40 @@ static size_t __BSadvanceUntil(const uint32_t * array, const size_t start,
 /**
  * Based on binary search.
  */
+size_t BSintersection(const uint32_t * set1, const size_t length1,
+		const uint32_t * set2, const size_t length2, uint32_t *out) {
+	if ((0 == length1) or (0 == length2))
+		return 0;
+	size_t answer = 0;
+	size_t k1 = 0, k2 = 0;
+	while (true) {
+		if (set1[k1] < set2[k2]) {
+			k1 = __BSadvanceUntil(set1, k1, length1, set2[k2]);
+			if (k1 == length1)
+				return answer;
+		}
+		if (set2[k2] < set1[k1]) {
+			k2 = __BSadvanceUntil(set2, k2, length2, set1[k1]);
+			if (k2 == length2)
+				return answer;
+		} else {
+			// assert(set2[k2] == set1[k1]);
+			out[answer++] = set1[k1];
+			++k1;
+			if (k1 == length1)
+				break;
+			++k2;
+			if (k2 == length2)
+				break;
+		}
+	}
+	return answer;
+
+}
+
+/**
+ * Based on binary search.
+ */
 size_t BSintersectioncardinality(const uint32_t * set1, const size_t length1,
 		const uint32_t * set2, const size_t length2) {
 	if ((0 == length1) or (0 == length2))
@@ -80,11 +114,6 @@ size_t BSintersectioncardinality(const uint32_t * set1, const size_t length1,
 
 }
 
-/*
- * start from 0
- * sxs: less efficient since it searches all the array
- * without memo
- */
 static size_t __FixedBSadvanceUntil(const uint32_t * array, const size_t length,
 		const size_t min) {
 	size_t lower = 0;

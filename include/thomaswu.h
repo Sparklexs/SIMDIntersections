@@ -10,6 +10,8 @@ typedef uint32_t UINT4;
 
 typedef uint64_t UINT8;
 
+// sxs: this function tries to find an element in @target within the range @ntargets
+// that is not smaller than @goal and returns its position.
 typedef long (*intersectionfindfunction)(UINT4 goal, const UINT4 *target, long ntargets);
 
 template <intersectionfindfunction FINDFUNCTION>

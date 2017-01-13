@@ -61,6 +61,9 @@ size_t intersect_scalar(const uint32_t *A, const size_t s_a,
 /**
  * More or less from
  * http://highlyscalable.wordpress.com/2012/06/05/fast-intersection-sorted-lists-sse/
+ *
+ * sxs: notice here the shuffle_mask is different from that of `widevectorintersection.h`
+ * this mask doesn't set mismatched element to -1, but overwrite the @out array
  */
 const static __m128i shuffle_mask[16] = {
         _mm_set_epi8(15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0),//0000
