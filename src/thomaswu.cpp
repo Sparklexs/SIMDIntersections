@@ -14,13 +14,13 @@
 #define V3_BLOCKSIZE (32*SIMDWIDTH)
 #define V3_ALIGNED_BLOCKSIZE (32*SIMDWIDTH+4)
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
 #define debug(x) x
 #else
 #define debug(x)
 #endif
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
 /* For debugging */
 static void
 print_vector_hex (__m128i x) {
@@ -114,9 +114,11 @@ long Intersection_find_v1(UINT4 goal, const UINT4 *target, long ntargets) {
 
         Match = _mm_set1_epi32(goal - 2147483648U);
         // sxs: namely compare less-than 'target - 2^31' and 'goal -2^31'
-        // then zero-right shift 31(27) bits and unite the result
-        // don't know why '_mm_srli_epi32' shows up here, the changing
-        // shift bits (31,27) have nothing to do with the result.
+        // then zero-right shift 31(27) bits and unite the result.
+        // If less-than comparison returns true, corressponding 32-bits
+        // will be set 1, and the OR operation will mark the matched position
+        // to be 1 (the possible position can only be 1 and 5 in 32-bit
+        // and left-shift 1 will be 2 and 6, then 3 and 7, 4 and 8).
         F0 = _mm_or_si128(
                 _mm_srli_epi32(
                         _mm_cmplt_epi32(
@@ -144,6 +146,8 @@ long Intersection_find_v1(UINT4 goal, const UINT4 *target, long ntargets) {
             return (target - init_target);
         } else {
             hits = (UINT4 *) &F0;
+            // sxs: hits are used to locate the matching position
+            // (1,5)(2,6)(3,7)(4,8) can only have one 1
 #ifdef HAVE_AVX2
             F0 = _mm_sllv_epi32(F0,_mm_set_epi32(0,1,2,3));
             pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
@@ -412,7 +416,153 @@ long Intersection_find_v2(UINT4 goal, const UINT4 *target, long ntargets) {
                                                 (__m128i *) (target) + 7),
                                         conversion), Match), 4 - 1));
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
+        printf("Q0: ");
+        print_vector_hex(Q0);
+        printf("Q1: ");
+        print_vector_hex(Q1);
+        printf("Q2: ");
+        print_vector_hex(Q2);
+        printf("Q3: ");
+        print_vector_hex(Q3);
+#endif
+
+        F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+        debug(printf("F0: ")); debug(print_vector_hex(F0));
+
+        if (
+#ifdef HAVE_SSE4_1
+        _mm_testz_si128(F0, F0)
+#else
+        _mm_movemask_epi8(_mm_cmpeq_epi8(F0,_mm_setzero_si128())) == 0xFFFF
+#endif
+        ) {
+            debug(printf("Not found\n"));
+            return (target - init_target);
+        } else {
+            hits = (UINT4 *) &F0;
+#ifdef HAVE_AVX2
+            F0 = _mm_sllv_epi32(F0,_mm_set_epi32(0,1,2,3));
+            pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+            pos = __builtin_clz(
+                    hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+            debug(printf("pos = %d => %d\n",pos,32 - pos));
+            return (target - init_target) + (32 - pos);
+        }
+    }
+}
+
+long Intersection_find_v2_aligned(UINT4 goal, const UINT4 *target,
+        long ntargets) {
+    const UINT4 *end_target, *stop_target, *init_target;
+    __m128i Match;
+    __m128i F0, Q0, Q1, Q2, Q3;
+    UINT4 *hits;
+    int pos;
+    int n_prealign;
+    const __m128i conversion = _mm_set1_epi32(2147483648U); /* 2^31 */
+
+    init_target = target;
+    stop_target = &(target[ntargets - V2_ALIGNED_BLOCKSIZE]);
+    end_target = &(target[ntargets]);
+
+    if (target >= stop_target) {
+        return Intersection_find_scalar(goal, target, ntargets);
+    } else {
+        while (target[V2_BLOCKSIZE] < goal) {
+            target += V2_BLOCKSIZE;
+            if (target >= stop_target) {
+                return (target - init_target) + Intersection_find_scalar(goal,
+                        target,/*ntargets*/(end_target - target));
+            }
+        }
+
+        /* Mini-scalar before we get to aligned data */
+#ifdef HAVE_64_BIT
+        n_prealign = ((16 - ((UINT8) target & 0xF)) / 4) & 0x3;
+#else
+        n_prealign = ((16 - ((UINT4) target & 0xF)) / 4) & 0x3;
+#endif
+
+        debug(printf("target is at location %p.  Need %d to get to 128-bit boundary\n",target,n_prealign));
+        while (--n_prealign >= 0 && *target < goal) {
+            target++;
+        }
+        if (*target >= goal) {
+            return (target - init_target);
+        }
+
+        //conversion = _mm_set1_epi32(2147483648U); /* 2^31 */
+        Match = _mm_set1_epi32(goal - 2147483648U);
+        // sxs: here Q0~Q4 can occupy the whole 32-bit
+        Q0
+                = _mm_or_si128(
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 0),
+                                                conversion), Match), 32 - 1),
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 1),
+                                                conversion), Match), 28 - 1));
+        Q1
+                = _mm_or_si128(
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 2),
+                                                conversion), Match), 24 - 1),
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 3),
+                                                conversion), Match), 20 - 1));
+        Q2
+                = _mm_or_si128(
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 4),
+                                                conversion), Match), 16 - 1),
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 5),
+                                                conversion), Match), 12 - 1));
+        Q3
+                = _mm_or_si128(
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 6),
+                                                conversion), Match), 8 - 1),
+                        _mm_srli_epi32(
+                                _mm_cmplt_epi32(
+                                        _mm_sub_epi32(
+                                                _mm_load_si128(
+                                                        (__m128i *) (target)
+                                                                + 7),
+                                                conversion), Match), 4 - 1));
+
+#ifdef DEBUG_THOMAS
         printf("Q0: ");
         print_vector_hex(Q0);
         printf("Q1: ");
@@ -525,7 +675,7 @@ long Intersection_find_v2_plow(UINT4 goal, const UINT4 *target, long ntargets) {
                                                     (__m128i *) (target) + 7),
                                             conversion), Match), 4 - 1));
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
             printf("Q0: ");
             print_vector_hex(Q0);
             printf("Q1: ");
@@ -573,152 +723,6 @@ long Intersection_find_v2_plow(UINT4 goal, const UINT4 *target, long ntargets) {
         target -= V2_BLOCKSIZE;
         return (target - init_target) + Intersection_find_scalar(goal, target,/*ntargets*/
                 (end_target - target));
-    }
-}
-
-long Intersection_find_v2_aligned(UINT4 goal, const UINT4 *target,
-        long ntargets) {
-    const UINT4 *end_target, *stop_target, *init_target;
-    __m128i Match;
-    __m128i F0, Q0, Q1, Q2, Q3;
-    UINT4 *hits;
-    int pos;
-    int n_prealign;
-    const __m128i conversion = _mm_set1_epi32(2147483648U); /* 2^31 */
-
-    init_target = target;
-    stop_target = &(target[ntargets - V2_ALIGNED_BLOCKSIZE]);
-    end_target = &(target[ntargets]);
-
-    if (target >= stop_target) {
-        return Intersection_find_scalar(goal, target, ntargets);
-    } else {
-        while (target[V2_BLOCKSIZE] < goal) {
-            target += V2_BLOCKSIZE;
-            if (target >= stop_target) {
-                return (target - init_target) + Intersection_find_scalar(goal,
-                        target,/*ntargets*/(end_target - target));
-            }
-        }
-
-        /* Mini-scalar before we get to aligned data */
-#ifdef HAVE_64_BIT
-        n_prealign = ((16 - ((UINT8) target & 0xF)) / 4) & 0x3;
-#else
-        n_prealign = ((16 - ((UINT4) target & 0xF)) / 4) & 0x3;
-#endif
-
-        debug(printf("target is at location %p.  Need %d to get to 128-bit boundary\n",target,n_prealign));
-        while (--n_prealign >= 0 && *target < goal) {
-            target++;
-        }
-        if (*target >= goal) {
-            return (target - init_target);
-        }
-
-        //conversion = _mm_set1_epi32(2147483648U); /* 2^31 */
-        Match = _mm_set1_epi32(goal - 2147483648U);
-
-        Q0
-                = _mm_or_si128(
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 0),
-                                                conversion), Match), 32 - 1),
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 1),
-                                                conversion), Match), 28 - 1));
-        Q1
-                = _mm_or_si128(
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 2),
-                                                conversion), Match), 24 - 1),
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 3),
-                                                conversion), Match), 20 - 1));
-        Q2
-                = _mm_or_si128(
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 4),
-                                                conversion), Match), 16 - 1),
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 5),
-                                                conversion), Match), 12 - 1));
-        Q3
-                = _mm_or_si128(
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 6),
-                                                conversion), Match), 8 - 1),
-                        _mm_srli_epi32(
-                                _mm_cmplt_epi32(
-                                        _mm_sub_epi32(
-                                                _mm_load_si128(
-                                                        (__m128i *) (target)
-                                                                + 7),
-                                                conversion), Match), 4 - 1));
-
-#ifdef DEBUG
-        printf("Q0: ");
-        print_vector_hex(Q0);
-        printf("Q1: ");
-        print_vector_hex(Q1);
-        printf("Q2: ");
-        print_vector_hex(Q2);
-        printf("Q3: ");
-        print_vector_hex(Q3);
-#endif
-
-        F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
-        debug(printf("F0: ")); debug(print_vector_hex(F0));
-
-        if (
-#ifdef HAVE_SSE4_1
-        _mm_testz_si128(F0, F0)
-#else
-        _mm_movemask_epi8(_mm_cmpeq_epi8(F0,_mm_setzero_si128())) == 0xFFFF
-#endif
-        ) {
-            debug(printf("Not found\n"));
-            return (target - init_target);
-        } else {
-            hits = (UINT4 *) &F0;
-#ifdef HAVE_AVX2
-            F0 = _mm_sllv_epi32(F0,_mm_set_epi32(0,1,2,3));
-            pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
-#else
-            pos = __builtin_clz(
-                    hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
-#endif
-            debug(printf("pos = %d => %d\n",pos,32 - pos));
-            return (target - init_target) + (32 - pos);
-        }
     }
 }
 
@@ -859,7 +863,7 @@ long Intersection_find_v16(UINT4 goal, const UINT4 *target, long ntargets) {
                                             conversion), Match), 4 - 1));
         }
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
         printf("Q0: ");
         print_vector_hex(Q0);
         printf("Q1: ");
@@ -1178,7 +1182,7 @@ long Intersection_find_v3(UINT4 goal, const UINT4 *target, long ntargets) {
             }
         }
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
         printf("Q0: ");
         print_vector_hex(Q0);
         printf("Q1: ");
@@ -1477,7 +1481,7 @@ long Intersection_find_v3_linear(UINT4 goal, const UINT4 *target, long ntargets)
                                     Match), 4 - 1));
         }
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
         printf("Q0: ");
         print_vector_hex(Q0);
         printf("Q1: ");
@@ -1813,7 +1817,7 @@ long Intersection_find_v3_aligned(UINT4 goal, const UINT4 *target,
             }
         }
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
         printf("Q0: ");
         print_vector_hex(Q0);
         printf("Q1: ");
@@ -2140,7 +2144,7 @@ long Intersection_find_simdgallop_v2(UINT4 goal, const UINT4 *target,
                                                     (__m128i *) (target) + 7),
                                             conversion), Match), 4 - 1));
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
             printf("Q0: ");
             print_vector_hex(Q0);
             printf("Q1: ");
@@ -2209,6 +2213,7 @@ long Intersection_find_simdgallop_v3(UINT4 goal, const UINT4 *target,
         } debug(printf("Galloping finds offset to be %d\n",high_offset));
 
         /* Binary search to nearest offset */
+        // sxs: here first set low_offset before reset high_offset
         low_offset = high_offset / 2;
         if (target + V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE >= stop_target) {
             high_offset = (stop_target - target) / V3_BLOCKSIZE; /* Do not subtract 1 */
@@ -2552,7 +2557,7 @@ long Intersection_find_simdgallop_v3(UINT4 goal, const UINT4 *target,
                 }
             }
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
             printf("Q0: ");
             print_vector_hex(Q0);
             printf("Q1: ");
@@ -2596,6 +2601,7 @@ long Intersection_find_simdgallop_v3(UINT4 goal, const UINT4 *target,
  does not exist, then returns some index before the next larger
  value.  The value *foundp informs the caller whether the goal was
  found. */
+// sxs: return base rather the exact position
 long Intersection_find_v3_cmpeq(int *foundp, UINT4 goal, const UINT4 *target,
         long ntargets) {
     const UINT4 *end_target, *stop_target, *init_target;
@@ -2770,7 +2776,7 @@ long Intersection_find_v3_cmpeq(int *foundp, UINT4 goal, const UINT4 *target,
             }
         }
 
-#ifdef DEBUG
+#ifdef DEBUG_THOMAS
         printf("Q0: ");
         print_vector_hex(Q0);
         printf("Q1: ");
@@ -2805,8 +2811,8 @@ long Intersection_find_v3_cmpeq(int *foundp, UINT4 goal, const UINT4 *target,
 /* If goal exists, then returns its index in the target and returns
  *foundp = 1.  But if goal does not exist, then returns some index
  before the next larger value and returns *foundp = 0. */
-// sxs: find no difference except the final part where dermining the
-// position of matched element.
+// sxs: nearly the same as the upper function (return base rather the
+// exact position)
 long Intersection_truefind_v3_cmpeq_scalar(int *foundp, UINT4 goal,
         const UINT4 *target, long ntargets) {
     const UINT4 *end_target, *stop_target, *init_target;
@@ -2991,7 +2997,8 @@ long Intersection_truefind_v3_cmpeq_scalar(int *foundp, UINT4 goal,
         }
     }
 }
-
+// sxs: find no difference with scalar except the final part where dermining the
+// position of matched element. From here functions return the exact position
 long Intersection_truefind_v3_cmpeq_simd32(int *foundp, UINT4 goal,
         const UINT4 *target, long ntargets) {
     const UINT4 *end_target, *stop_target, *init_target;

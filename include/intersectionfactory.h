@@ -70,8 +70,8 @@ std::map<std::string,intersectionfunction> realinitializefactory() {
     schemes[ "hssimd" ] =  highlyscalablewordpresscom::intersect_SIMD;
     schemes[ "hssimddan" ] =  highlyscalablewordpresscom::dan_intersect_SIMD;
 
-
-    /*schemes[ "thomas_scalar" ] = compute_intersection<Intersection_find_scalar>;
+    // sxs: uncomment by sxs
+    schemes[ "thomas_scalar" ] = compute_intersection<Intersection_find_scalar>;
     schemes[ "thomas_gallop" ] =  compute_intersection<Intersection_find_gallop>;
     schemes[ "thomas_v1" ] =  compute_intersection<Intersection_find_v1>;
     schemes[ "thomas_v1_plow" ] =  compute_intersection<Intersection_find_v1_plow>;
@@ -87,7 +87,7 @@ std::map<std::string,intersectionfunction> realinitializefactory() {
     schemes[ "thomas_v3cmpeqsimd32flagged" ] =  compute_intersection_flagged<Intersection_truefind_v3_cmpeq_simd32>;
     schemes[ "thomas_v3cmpeqsimd8flagged" ] =  compute_intersection_flagged<Intersection_truefind_v3_cmpeq_simd8>;
     schemes[ "thomas_v3cmpeqbinaryflagged" ] =  compute_intersection_flagged<Intersection_truefind_v3_cmpeq_binary>;
-    */
+
     return schemes;
 }
 

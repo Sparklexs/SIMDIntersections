@@ -14,8 +14,10 @@ using namespace std;
 
 /**
  * unsatured packing.
- * sxs: namely pack 8 32-bit integers into 16 16-bit integers
+ * sxs: namely pack 8 32-bit integers into 8 16-bit integers
  * only preserve their low-16 bits.
+ * ------>
+ * lo0,lo1,lo2,lo3,hi0,hi1,hi2,hi3,hi4
  */
 __attribute__((always_inline))
 inline __m128i __pack_epu32( __m128i lo, __m128i hi ) {

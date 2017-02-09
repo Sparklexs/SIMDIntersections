@@ -910,6 +910,8 @@ size_t v3avx2(const uint32_t *rare, const size_t lenRare,
 }
 #endif
 
+// sxs: compared with "danfar_count_medium", this method has four fined
+// divergences rather two
 size_t danfarfine_count_medium(const uint32_t *rare, const size_t lenRare,
 		const uint32_t *freq, const size_t lenFreq) {
 	size_t count = 0;

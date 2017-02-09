@@ -8,10 +8,7 @@
 #ifndef INCLUDE_MULTISETINTERSECTION_HPP_
 #define INCLUDE_MULTISETINTERSECTION_HPP_
 
-#include "intersectionfactory.h"
-#include "timer.h"
-#include "synthetic.h"
-#include "util.h"
+#include "common.h"
 
 namespace msis/*MultiSet InterSection*/{
 // here adapts the range [start,end], different from __BSadvanceUntil
@@ -41,7 +38,7 @@ static _ALWAYSINLINE size_t binarySearch_wider(const uint32_t * array,
 }
 
 // here adapts the range [start,end]
-static _ALWAYSINLINE size_t gallopping(const uint32_t * array,
+static _ALWAYSINLINE size_t galloping(const uint32_t * array,
 		const size_t start, const size_t end, const size_t min) {
 	size_t lower = start;
 
@@ -59,13 +56,10 @@ static _ALWAYSINLINE size_t gallopping(const uint32_t * array,
 		spansize *= 2;
 	size_t upper = (lower + spansize <= end) ? lower + spansize : end;
 
-	// maybe we are lucky (could be common case when the seek ahead expected to be small and sequential will otherwise make us look bad)
-	//if (array[upper] == min) {
-	//    return upper;
-	//}
-
-	if (array[upper] < min) {    // means array has no item >= min
-		return end;
+	// maybe we are lucky (could be common case when the seek ahead expected
+	// to be small and sequential will otherwise make us look bad)
+	if (array[upper] <= min) {    // means array has no item > min
+		return upper;
 	}
 
 	// we know that the next-smallest span was too small
@@ -88,6 +82,10 @@ static _ALWAYSINLINE size_t gallopping(const uint32_t * array,
 
 void small_vs_small(const mySet &sets, std::vector<uint32_t> &out);
 
+/*
+ * @description: basic methods intersecting two sorted sequences,
+ * returned results are also sorted.
+ */
 void BYintersect_sorted(const uint32_t *D, const size_t &D_end,
 		const uint32_t *Q, const size_t &Q_end, uint32_t **out,
 		uint32_t &count);
