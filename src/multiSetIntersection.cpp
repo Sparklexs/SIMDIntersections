@@ -30,6 +30,19 @@
 #include "timer.h"
 #include "synthetic.h"
 
+typedef void (*intersectionFUNC)(const mySet &sets, std::vector<uint32_t> &out);
+
+/* SIMD methods are template functions that can't be applied to typedef */
+intersectionFUNC scalarFUNC[] = { msis::small_vs_small, msis::set_vs_set,
+		msis::swapping_set_vs_set, msis::adaptive, msis::sequential,
+		msis::small_adaptive, msis::max, msis::BaezaYates };
+
+const int NUMFUNC = 8;
+
+const std::string NAMEFUNC[] = { "small_vs_small", "set_vs_set",
+		"swapping_set_vs_set", "adaptive", "sequential", "small_adaptive",
+		"max", "BaezaYates" };
+
 void msis::small_vs_small(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
 	// XXX: we'd like to use rvalue reference, however, it has conflicts
@@ -496,7 +509,7 @@ int main() {
 	cout << "# average gaps in bits for smallest array: "
 
 	<< std::setprecision(3) << log(1 + (1U << MaxBit) * 1.0 / minlength)
-			<< " (use -S and -M flag to change)" << endl;
+			<< endl;
 	cout << "# average gaps in bits for last largest array: "
 
 	<< std::setprecision(3)
@@ -513,7 +526,7 @@ int main() {
 //	small_adaptive(MultiSets, out);
 
 	size_t time = 0;
-	const int TIMES = 1;
+	const int REPETITION = 1;
 	for (float ir : intersectionsratios) {
 		printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
 		for (uint32_t sr : sizeratios) {
@@ -531,197 +544,84 @@ int main() {
 				for (; it != MultiSets.end(); it++)
 					final_intersection = intersect(final_intersection, *it);
 
-				//SIMD test
-				// v1
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_v1>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("v1: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_v1_plow>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("v1_plow: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-
-				// v2
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_v2>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("v2: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-
-				// v3
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_v3>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("v3: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-
-				// gallop
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_simdgallop_v0>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("g_v0: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_simdgallop_v1>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("g_v1: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_simdgallop_v2>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("g_v2: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-				timer.reset();
-				for (int howmany = 0; howmany < TIMES; ++howmany) {
-					max_SIMD<Intersection_find_simdgallop_v3>(MultiSets, out);
-				}
-				time = timer.split();
-				printf("g_v3: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-
-				printf("\n");
+//				//SIMD test
+//				// v1
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_v1>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("v1: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_v1_plow>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("v1_plow: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//
+//				// v2
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_v2>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("v2: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//
+//				// v3
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_v3>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("v3: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//
+//				// gallop
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_simdgallop_v0>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("g_v0: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_simdgallop_v1>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("g_v1: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_simdgallop_v2>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("g_v2: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//				timer.reset();
+//				for (int howmany = 0; howmany < TIMES; ++howmany) {
+//					max_SIMD<Intersection_find_simdgallop_v3>(MultiSets, out);
+//				}
+//				time = timer.split();
+//				printf("g_v3: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
+//
+//				printf("\n");
 
 				// start intersection
 
-//				/*********************1************************/
-//				/***************small_vs_small*****************/
-//				/*********************1************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					small_vs_small(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("small_vs_small: \e[31m%6.0f\e[0m  ",
-//						(double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************2************************/
-//				/*****************set_vs_set*******************/
-//				/*********************2************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					set_vs_set(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("set_vs_set: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************3************************/
-//				/************swapping_set_vs_set***************/
-//				/*********************3************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					swapping_set_vs_set(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("swapping_set_vs_set: \e[31m%6.0f\e[0m  ",
-//						(double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************4************************/
-//				/*****************adaptive*********************/
-//				/*********************4************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					adaptive(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("adaptive: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************5************************/
-//				/*****************sequential*******************/
-//				/*********************5************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					sequential(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("sequential: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************6************************/
-//				/***************small_adaptive*****************/
-//				/*********************6************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					small_adaptive(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("small_adaptive: \e[31m%6.0f\e[0m  ",
-//						(double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************7************************/
-//				/********************max***********************/
-//				/*********************7************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					max(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("max: \e[31m%6.0f\e[0m  ", (double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!  " << std::endl;
-//					return 1;
-//				} else
-//					printf("good!  ");
-//
-//				/*********************8************************/
-//				/*****************BaezaYates*******************/
-//				/*********************8************************/
-//				timer.reset();
-//				for (int howmany = 0; howmany < TIMES; ++howmany) {
-//					BaezaYates(MultiSets, out);
-//				}
-//				time = timer.split();
-//				printf("BaezaYates: \e[31m%6.0f\e[0m\n", (double) time / TIMES);
-//
-//				if (out != final_intersection) {
-//					std::cerr << "bad result!\n" << std::endl;
-//					return 1;
-//				} else
-//					printf("good!\n");
+				for (int i = 0; i < NUMFUNC; i++) {
+					timer.reset();
+					for (int howmany = 0; howmany < REPETITION; ++howmany) {
+						scalarFUNC[i](MultiSets, out);
+					}
+					time = timer.split();
+					printf("%s: \e[31m%6.0f\e[0m  ", NAMEFUNC[i].c_str(),
+							(double) time / REPETITION);
+
+//					if (out != final_intersection) {
+//						std::cerr << "bad result!  " << std::endl;
+//						return 1;
+//					} else
+//						printf("good!  ");
+
+				}
+				printf("\n");
 				fflush(stdout);
 			}
 		}
