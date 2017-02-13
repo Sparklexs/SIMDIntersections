@@ -125,13 +125,13 @@ long Intersection_find_v1(UINT4 goal, const UINT4 *target, long ntargets) {
                                 _mm_sub_epi32(
                                         _mm_loadu_si128(
                                                 (__m128i *) (target) + 0),
-                                        conversion), Match), 32 - 1),
+                                        conversion), Match), 32 - 1)/*1*/,
                 _mm_srli_epi32(
                         _mm_cmplt_epi32(
                                 _mm_sub_epi32(
                                         _mm_loadu_si128(
                                                 (__m128i *) (target) + 1),
-                                        conversion), Match), 28 - 1));
+                                        conversion), Match), 28 - 1))/*5*/;
 
         debug(printf("F0: ")); debug(print_vector_hex(F0));
 
