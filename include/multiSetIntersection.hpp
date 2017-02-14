@@ -93,9 +93,8 @@ long simdgallop_v3_exact(UINT4 goal, const UINT4 *target, long ntargets) {
 	stop_target = target + ntargets - V3_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (target >= stop_target)
 		return Intersection_find_scalar(goal, target, ntargets);
-	}
 
 	if (target[V3_BLOCKSIZE - 1] < goal) {
 		if (target + V3_BLOCKSIZE > stop_target)
@@ -335,20 +334,221 @@ long simdgallop_v3_exact(UINT4 goal, const UINT4 *target, long ntargets) {
 }
 
 /* return the head-position of mathced block */
-long simdgallop_v3_rough(UINT4 goal, const UINT4 *target, long ntargets) {
+long simdgallop_v3_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
 	const UINT4 *end_target, *stop_target, *init_target;
-	const UINT4 V3_BLOCKSIZE = 4 * 32;
 	const UINT4 SIMDWIDTH = 4;
+	const UINT4 V3_BLOCKSIZE = SIMDWIDTH * 32;
 
 	long low_offset, mid_offset, high_offset;
+	long pos, base;
 
 	init_target = target;
 	stop_target = target + ntargets - V3_BLOCKSIZE;
 	end_target = target + ntargets;
 
 	if (target >= stop_target) {
-		return Intersection_find_scalar(goal, target, ntargets);
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
 	}
+
+	if (target[V3_BLOCKSIZE - 1] < goal) {
+		if (target + V3_BLOCKSIZE > stop_target) {
+			pos = V3_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V3_BLOCKSIZE,
+							ntargets - V3_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		high_offset = 1;
+		while (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V3_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V3_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V3_BLOCKSIZE;
+				if (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1]
+						< goal) {
+					target += V3_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V3_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V3_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V3_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V3_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V3_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V3_BLOCKSIZE * mid_offset + V3_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V3_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match;
+	__m128i F0, Q0, Q1, Q2, Q3;
+	Match = _mm_set1_epi32(goal);
+
+	if (target[SIMDWIDTH * 16 - 1] >= goal) {
+		if (target[SIMDWIDTH * 8 - 1] >= goal) {
+			base = 0;
+			Q0 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match));
+			Q1 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match));
+			Q2 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match));
+			Q3 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match));
+		} else {
+			base = 32;
+			Q0 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 8),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 9),
+							Match));
+			Q1 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 10),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 11),
+							Match));
+			Q2 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 12),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 13),
+							Match));
+			Q3 = _mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 14),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 15),
+							Match));
+		}
+	} else {
+		if (target[SIMDWIDTH * 24 - 1] >= goal) {
+			base = 64;
+			Q0 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 0 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 1 + 16),
+							Match));
+			Q1 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 2 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 3 + 16),
+							Match));
+			Q2 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 4 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 5 + 16),
+							Match));
+			Q3 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 6 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 7 + 16),
+							Match));
+		} else {
+			base = 96;
+			Q0 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 8 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 9 + 16),
+							Match));
+			Q1 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 10 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 11 + 16),
+							Match));
+			Q2 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 12 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 13 + 16),
+							Match));
+			Q3 = _mm_or_si128(
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 14 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 15 + 16),
+							Match));
+		}
+	}
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target) + base;
+}
+
+long simdgallop_v3_greedy(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+	const UINT4 SIMDWIDTH = 4;
+	const UINT4 V3_BLOCKSIZE = SIMDWIDTH * 32;
+
+	long low_offset, mid_offset, high_offset;
+	long pos, base;
+
+	init_target = target;
+	stop_target = target + ntargets - V3_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
 
 	if (target[V3_BLOCKSIZE - 1] < goal) {
 		if (target + V3_BLOCKSIZE > stop_target)
@@ -393,189 +593,153 @@ long simdgallop_v3_rough(UINT4 goal, const UINT4 *target, long ntargets) {
 	// now search the block [target, target+block_size-1]
 	__m128i Match;
 	__m128i F0, Q0, Q1, Q2, Q3;
-	UINT4 *hits;
-	long pos, base;
 	Match = _mm_set1_epi32(goal);
 
 	if (target[SIMDWIDTH * 16 - 1] >= goal) {
 		if (target[SIMDWIDTH * 8 - 1] >= goal) {
 			base = 0;
 			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 0),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 1),
-									Match), 28 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match));
 			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 2),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 3),
-									Match), 20 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match));
 			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 4),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 5),
-									Match), 12 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match));
 			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 6),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 7),
-									Match), 4 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match));
 		} else {
 			base = 32;
 			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 8),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 9),
-									Match), 28 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 8),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 9),
+							Match));
 			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 10),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 11),
-									Match), 20 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 10),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 11),
+							Match));
 			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 12),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 13),
-									Match), 12 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 12),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 13),
+							Match));
 			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 14),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 15),
-									Match), 4 - 1));
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 14),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 15),
+							Match));
 		}
 	} else {
 		if (target[SIMDWIDTH * 24 - 1] >= goal) {
 			base = 64;
 			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 0 + 16),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 1 + 16),
-									Match), 28 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 0 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 1 + 16),
+							Match));
 			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 2 + 16),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 3 + 16),
-									Match), 20 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 2 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 3 + 16),
+							Match));
 			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 4 + 16),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 5 + 16),
-									Match), 12 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 4 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 5 + 16),
+							Match));
 			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 6 + 16),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 7 + 16),
-									Match), 4 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 6 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 7 + 16),
+							Match));
 		} else {
 			base = 96;
 			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 8 + 16),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 9 + 16),
-									Match), 28 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 8 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 9 + 16),
+							Match));
 			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 10 + 16),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 11 + 16),
-									Match), 20 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 10 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 11 + 16),
+							Match));
 			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 12 + 16),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 13 + 16),
-									Match), 12 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 12 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 13 + 16),
+							Match));
 			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 14 + 16),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 15 + 16),
-									Match), 4 - 1));
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 14 + 16),
+							Match),
+					_mm_cmpeq_epi32(
+							_mm_lddqu_si128((__m128i *) target + 15 + 16),
+							Match));
 		}
 	}
 
 	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
-	if (_mm_testz_si128(F0, F0)) {
+	if (_mm_testz_si128(F0, F0))
 		return (target - init_target) + base;
-	} else {
-		hits = (UINT4*) &F0;
+	else {
+		target += base;
+		Q0 = _mm_or_si128(
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+								Match), 32 - 1),
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+								Match), 28 - 1));
+		Q1 = _mm_or_si128(
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+								Match), 24 - 1),
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+								Match), 20 - 1));
+		Q2 = _mm_or_si128(
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+								Match), 16 - 1),
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+								Match), 12 - 1));
+		Q3 = _mm_or_si128(
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+								Match), 8 - 1),
+				_mm_srli_epi32(
+						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+								Match), 4 - 1));
+		F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+		UINT4 *hits = (UINT4*) &F0;
 #ifdef __AVX2__
 		F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
 		pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
@@ -583,11 +747,11 @@ long simdgallop_v3_rough(UINT4 goal, const UINT4 *target, long ntargets) {
 		pos = __builtin_clz(
 				hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
 #endif
-		return (target - init_target) + base + (31 - pos);
+		return (target - init_target) + (31 - pos);
 	}
 }
 
-///////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////
 template<setIntersectionFunction FUNCTION>
 void small_vs_small(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
@@ -1078,5 +1242,4 @@ void BaezaYates(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 }
-
 #endif /* INCLUDE_MULTISETINTERSECTION_HPP_ */

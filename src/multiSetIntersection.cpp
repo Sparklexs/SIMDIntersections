@@ -77,7 +77,7 @@ int main() {
 
 	WallClockTimer timer;
 	size_t time = 0;
-	const int REPETITION = 1;
+	const int REPETITION = 5;
 
 #ifdef __INTEL_COMPILER
 // Intel's support for C++ sucks
@@ -105,8 +105,7 @@ int main() {
 // proper C++
 	vector<float> intersectionsratios = { 1.00, 0.80, 0.60, 0.20, 0.10, 0.05,
 			0.01 };
-	vector<uint32_t> sizeratios =
-			{ 1, 2, 3, 5, 10, 20 /*, 40, 80, 200, 500, 1000*/};
+	vector<uint32_t> sizeratios = { 1, 2, 3, 5, 10, 20, 40, 80, 200, 500, 1000 };
 #endif
 
 	cout << "########### Intersection benchmark ###########" << endl;
@@ -142,22 +141,78 @@ int main() {
 				for (; it != MultiSets.end(); it++)
 					final_intersection = intersect(final_intersection, *it);
 
-				// start scalar intersection
-				for (int i = 0; i < NUMFUNC; i++) {
-					timer.reset();
-					for (int howmany = 0; howmany < REPETITION; ++howmany) {
-						scalarFUNC[i](MultiSets, out);
-					}
-					time = timer.split();
-					printf("%s: \e[31m%6.0f\e[0m  ", NAMEFUNC[i].c_str(),
-							(double) time / REPETITION);
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					set_vs_set_flagged<simdgallop_v3_rough>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "rough",
+						(double) time / REPETITION);
 
-					if (out != final_intersection) {
-						std::cerr << "bad result!  " << std::endl;
-						return 1;
-					} else
-						printf("good!  ");
-				} // for intersection
+				if (out != final_intersection) {
+					std::cerr << "bad result!  " << std::endl;
+					return 1;
+				} else
+					printf("good!  ");
+
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					set_vs_set<simdgallop_v3_greedy>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "greedy",
+						(double) time / REPETITION);
+
+				if (out != final_intersection) {
+					std::cerr << "bad result!  " << std::endl;
+					return 1;
+				} else
+					printf("good!  ");
+
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					set_vs_set<simdgallop_v3_exact>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "exact",
+						(double) time / REPETITION);
+
+				if (out != final_intersection) {
+					std::cerr << "bad result!  " << std::endl;
+					return 1;
+				} else
+					printf("good!  ");
+
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					set_vs_set_scalar(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "scalar",
+						(double) time / REPETITION);
+
+				if (out != final_intersection) {
+					std::cerr << "bad result!  " << std::endl;
+					return 1;
+				} else
+					printf("good!  ");
+
+				// start scalar intersection
+//				for (int i = 0; i < NUMFUNC; i++) {
+//					timer.reset();
+//					for (int howmany = 0; howmany < REPETITION; ++howmany) {
+//						scalarFUNC[i](MultiSets, out);
+//					}
+//					time = timer.split();
+//					printf("%s: \e[31m%6.0f\e[0m  ", NAMEFUNC[i].c_str(),
+//							(double) time / REPETITION);
+//
+//					if (out != final_intersection) {
+//						std::cerr << "bad result!  " << std::endl;
+//						return 1;
+//					} else
+//						printf("good!  ");
+//				} // for intersection
 				printf("\n");
 				fflush(stdout);
 			} // for num
