@@ -37,7 +37,7 @@ multiSetIntersection: $(HEADERS) src/multiSetIntersection.cpp include/multiSetIn
 	$(CXX) $(CXXFLAGS) -Iinclude -o multiSetIntersection src/multiSetIntersection.cpp match.o thomaswu.o intersection.o
 	
 testintersection: $(HEADERS) src/testintersection.cpp match.o thomaswu.o intersection.o
-	$(CXX) $(CXXFLAGS) -Iinclude -o testintersection src/testintersection.cpp match.o thomaswu.o intersection.o
+	$(CXX) $(CXXFLAGS) -Iinclude -lboost_system -o testintersection src/testintersection.cpp match.o thomaswu.o intersection.o
 
 realintersection: $(HEADERS) src/realintersection.cpp match.o thomaswu.o intersection.o
 	$(CXX) $(CXXFLAGS) -Iinclude -o realintersection src/realintersection.cpp match.o thomaswu.o intersection.o

@@ -46,7 +46,6 @@
 
 #define _LIKELY(x) __builtin_expect(!!(x), 1)
 #define _UNLIKELY(x) __builtin_expect(!!(x), 0)
-#define _NOINLINE __attribute__((noinline))
 #define _ALWAYSINLINE __attribute__((always_inline))
 typedef std::set<std::vector<uint32_t>,
 		std::function<

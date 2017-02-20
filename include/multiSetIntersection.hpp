@@ -13,13 +13,24 @@
 #include "intersectionfactory.h"
 
 namespace msis/*MultiSet InterSection*/{
+const UINT4 SIMDWIDTH = 4;
+const UINT4 V4_BLOCKSIZE = SIMDWIDTH * 1;
+const UINT4 V8_BLOCKSIZE = SIMDWIDTH * 2;
+const UINT4 V16_BLOCKSIZE = SIMDWIDTH * 4;
+const UINT4 V32_BLOCKSIZE = SIMDWIDTH * 8;
+const UINT4 V64_BLOCKSIZE = SIMDWIDTH * 16;
+const UINT4 V128_BLOCKSIZE = SIMDWIDTH * 32;
+const UINT4 V256_BLOCKSIZE = SIMDWIDTH * 64;
+const UINT4 V512_BLOCKSIZE = SIMDWIDTH * 128;
+const UINT4 V4_POS[] = { 0, 0, 1, 0, 2, 0, 0, 0, 3 };
+
 typedef size_t (*setIntersectionFunction)(const uint32_t * set1,
 		const size_t length1, const uint32_t * set2, const size_t length2,
-		uint32_t *out);
+		uint32_t *out); // used only for method `small_vs_small`
 
 // here adapt the range [start(0),end], different from __BSadvanceUntil
 // whose range is [start+1,end-1]
-long scalarBinarySearch(uint32_t min, const uint32_t * array, long end) {
+long scalarBinarySearch(UINT4 min, const UINT4 * array, long end) {
 	if (0 == end || *array >= min) {
 		return 0;
 	}
@@ -43,13 +54,13 @@ long scalarBinarySearch(uint32_t min, const uint32_t * array, long end) {
 }
 
 // here adapt the range [start,end]
-long scalargallop(uint32_t min, const uint32_t * array, long end) {
-	// special handling for a possibly common sequential case
+long scalargallop(UINT4 min, const UINT4 * array, long end) {
+	// special handling for a possibly common sequential_exact case
 	if ((0 >= end) or (*array >= min)) {
 		return 0;
 	}
 
-	size_t upper = 1; // could set larger
+	long upper = 1; // could set larger
 	// bootstrap an upper limit
 
 	// sxs: here spansize is enlarged to the maximum where its corresponding
@@ -58,7 +69,7 @@ long scalargallop(uint32_t min, const uint32_t * array, long end) {
 		upper <<= 1;
 
 	// we know that the next-smallest span was too small
-	size_t lower = (upper / 2);
+	long lower = (upper / 2);
 
 	if (upper > end)
 		upper = end;
@@ -68,7 +79,7 @@ long scalargallop(uint32_t min, const uint32_t * array, long end) {
 	}
 
 	// else begin binary search
-	size_t mid = 0;
+	long mid = 0;
 	while (lower + 1 != upper) {
 		mid = (lower + upper) / 2;
 		if (array[mid] == min) {
@@ -81,72 +92,196 @@ long scalargallop(uint32_t min, const uint32_t * array, long end) {
 	return upper;
 }
 
-/* return the exact position of intersection */
-long simdgallop_v3_exact(UINT4 goal, const UINT4 *target, long ntargets) {
-	const UINT4 *end_target, *stop_target, *init_target;
-	const UINT4 V3_BLOCKSIZE = 4 * 32;
-	const UINT4 SIMDWIDTH = 4;
+/*
+ * some of the following functions can be furhter merged by using
+ * templates, but not all of them. To keep the readability, templates
+ * are discarded.
+ */
 
-	long low_offset, mid_offset, high_offset;
+long simdlinear_v4_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
 
 	init_target = target;
-	stop_target = target + ntargets - V3_BLOCKSIZE;
-	end_target = target + ntargets;
+	stop_target = &(target[ntargets - V4_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
 
-	if (target >= stop_target)
+	if (_UNLIKELY(target >= stop_target)) {
 		return Intersection_find_scalar(goal, target, ntargets);
-
-	if (target[V3_BLOCKSIZE - 1] < goal) {
-		if (target + V3_BLOCKSIZE > stop_target)
-			return V3_BLOCKSIZE
-					+ Intersection_find_scalar(goal, target + V3_BLOCKSIZE,
-							ntargets - V3_BLOCKSIZE);
-
-		/* Galloping search */
-		high_offset = 1;
-		while (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1] < goal) {
-			if (target + (high_offset << 1) * V3_BLOCKSIZE <= stop_target) {
-				low_offset = high_offset;
-				high_offset <<= 1;
-			} else if (target + V3_BLOCKSIZE * (high_offset + 1)
-					<= stop_target) {
-				high_offset = (stop_target - target) / V3_BLOCKSIZE;
-				if (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1]
-						< goal) {
-					target += V3_BLOCKSIZE * high_offset;
-					return V3_BLOCKSIZE * high_offset
-							+ Intersection_find_scalar(goal, target,
-									(end_target - target));
-				} else
-					break;
-			} else {
-				target += V3_BLOCKSIZE * high_offset;
-				return V3_BLOCKSIZE * high_offset
-						+ Intersection_find_scalar(goal, target,
-								(end_target - target));
-			}
-		}			// while-loop
-		while (low_offset < high_offset) {
-			mid_offset = (low_offset + high_offset) / 2;
-			if (target[V3_BLOCKSIZE * mid_offset + V3_BLOCKSIZE - 1] < goal) {
-				low_offset = mid_offset + 1;
-			} else {
-				high_offset = mid_offset;
-			}
-		}
-		target += V3_BLOCKSIZE * high_offset;
 	}
-	// now search the block [target, target+block_size-1]
-	__m128i Match;
-	__m128i F0, Q0, Q1, Q2, Q3;
-	UINT4 *hits;
-	long pos, base;
-	Match = _mm_set1_epi32(goal);
 
-	if (target[SIMDWIDTH * 16 - 1] >= goal) {
-		if (target[SIMDWIDTH * 8 - 1] >= goal) {
-			base = 0;
-			Q0 = _mm_or_si128(
+	while (target[V4_BLOCKSIZE - 1] < goal) {
+		target += V4_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	UINT4 pos = V4_POS[_mm_movemask_ps(
+			_mm_castsi128_ps(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match)))];
+
+	return (target - init_target) + pos;
+}
+
+long simdlinear_v4_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V4_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V4_BLOCKSIZE - 1] < goal) {
+		target += V4_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+
+	__m128i F0 = _mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+			Match);
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v8_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V8_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V8_BLOCKSIZE - 1] < goal) {
+		target += V8_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	long pos;
+
+	__m128i F0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdlinear_v8_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V8_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V8_BLOCKSIZE - 1] < goal) {
+		target += V8_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+
+	__m128i F0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v16_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V16_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V16_BLOCKSIZE - 1] < goal) {
+		target += V16_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	long pos;
+
+	__m128i F0 = _mm_or_si128(
+			_mm_or_si128(
 					_mm_srli_epi32(
 							_mm_cmpeq_epi32(
 									_mm_lddqu_si128((__m128i *) target + 0),
@@ -154,8 +289,8 @@ long simdgallop_v3_exact(UINT4 goal, const UINT4 *target, long ntargets) {
 					_mm_srli_epi32(
 							_mm_cmpeq_epi32(
 									_mm_lddqu_si128((__m128i *) target + 1),
-									Match), 28 - 1));
-			Q1 = _mm_or_si128(
+									Match), 28 - 1)),
+			_mm_or_si128(
 					_mm_srli_epi32(
 							_mm_cmpeq_epi32(
 									_mm_lddqu_si128((__m128i *) target + 2),
@@ -163,188 +298,947 @@ long simdgallop_v3_exact(UINT4 goal, const UINT4 *target, long ntargets) {
 					_mm_srli_epi32(
 							_mm_cmpeq_epi32(
 									_mm_lddqu_si128((__m128i *) target + 3),
-									Match), 20 - 1));
-			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 4),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 5),
-									Match), 12 - 1));
-			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 6),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 7),
-									Match), 4 - 1));
-		} else {
-			base = 32;
-			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 8),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 9),
-									Match), 28 - 1));
-			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 10),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 11),
-									Match), 20 - 1));
-			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 12),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 13),
-									Match), 12 - 1));
-			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 14),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128((__m128i *) target + 15),
-									Match), 4 - 1));
-		}
-	} else {
-		if (target[SIMDWIDTH * 24 - 1] >= goal) {
-			base = 64;
-			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 0 + 16),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 1 + 16),
-									Match), 28 - 1));
-			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 2 + 16),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 3 + 16),
-									Match), 20 - 1));
-			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 4 + 16),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 5 + 16),
-									Match), 12 - 1));
-			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 6 + 16),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 7 + 16),
-									Match), 4 - 1));
-		} else {
-			base = 96;
-			Q0 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 8 + 16),
-									Match), 32 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 9 + 16),
-									Match), 28 - 1));
-			Q1 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 10 + 16),
-									Match), 24 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 11 + 16),
-									Match), 20 - 1));
-			Q2 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 12 + 16),
-									Match), 16 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 13 + 16),
-									Match), 12 - 1));
-			Q3 = _mm_or_si128(
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 14 + 16),
-									Match), 8 - 1),
-					_mm_srli_epi32(
-							_mm_cmpeq_epi32(
-									_mm_lddqu_si128(
-											(__m128i *) target + 15 + 16),
-									Match), 4 - 1));
-		}
-	}
+									Match), 20 - 1)));
 
-	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
-	if (_mm_testz_si128(F0, F0)) {
-		return (target - init_target) + base;
-	} else {
-		hits = (UINT4*) &F0;
+	UINT4 *hits = (UINT4*) &F0;
 #ifdef __AVX2__
-		F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
-		pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
 #else
-		pos = __builtin_clz(
-				hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
 #endif
-		return (target - init_target) + base + (31 - pos);
-	}
+	return (target - init_target) + (31 - pos);
 }
 
-/* return the head-position of mathced block */
-long simdgallop_v3_rough(int *foundp, UINT4 goal, const UINT4 *target,
+long simdlinear_v16_rough(int*foundp, UINT4 goal, const UINT4 *target,
 		long ntargets) {
-	const UINT4 *end_target, *stop_target, *init_target;
-	const UINT4 SIMDWIDTH = 4;
-	const UINT4 V3_BLOCKSIZE = SIMDWIDTH * 32;
-
-	long low_offset, mid_offset, high_offset;
-	long pos, base;
+	const UINT4 *stop_target, *init_target;
+	long pos;
 
 	init_target = target;
-	stop_target = target + ntargets - V3_BLOCKSIZE;
+	stop_target = &(target[ntargets - V16_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V16_BLOCKSIZE - 1] < goal) {
+		target += V16_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+
+	__m128i F0 = _mm_or_si128(
+			_mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match)),
+			_mm_or_si128(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match),
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match)));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v32_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V32_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V32_BLOCKSIZE - 1] < goal) {
+		target += V32_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdlinear_v32_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V32_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V32_BLOCKSIZE - 1] < goal) {
+		target += V32_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v64_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V64_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V64_BLOCKSIZE - 1] < goal) {
+		target += V64_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V64_BLOCKSIZE / 2 - 1] < goal)
+		target += 32;
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdlinear_v64_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V64_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V64_BLOCKSIZE - 1] < goal) {
+		target += V64_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V64_BLOCKSIZE / 2 - 1] < goal)
+		target += 32;
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v128_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V128_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V128_BLOCKSIZE - 1] < goal) {
+		target += V128_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V128_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V128_BLOCKSIZE / 4 - 1] < goal)
+			target += 32;
+	} else {
+		if (target[V128_BLOCKSIZE * 3 / 4 - 1] >= goal)
+			target += 64;
+		else
+			target += 96;
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdlinear_v128_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V128_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V128_BLOCKSIZE - 1] < goal) {
+		target += V128_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V128_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V128_BLOCKSIZE / 4 - 1] < goal)
+			target += 32;
+	} else {
+		if (target[V128_BLOCKSIZE * 3 / 4 - 1] >= goal)
+			target += 64;
+		else
+			target += 96;
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v256_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V256_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V256_BLOCKSIZE - 1] < goal) {
+		target += V256_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V256_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V256_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 - 1] < goal)
+				target += 32;
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 - 1] >= goal) {
+				target += 64;
+			} else
+				target += 96;
+		}
+	} else {
+		if (target[V256_BLOCKSIZE / 4 + 128 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 + 128 - 1] >= goal)
+				target += 128;
+			else
+				target += 160;
+
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 + 128 - 1] >= goal)
+				target += 192;
+			else
+				target += 224;
+		}
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdlinear_v256_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V256_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V256_BLOCKSIZE - 1] < goal) {
+		target += V256_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V256_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V256_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 - 1] < goal)
+				target += 32;
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 - 1] >= goal)
+				target += 64;
+			else
+				target += 96;
+		}
+	} else {
+		if (target[V256_BLOCKSIZE / 4 + 128 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 + 128 - 1] >= goal)
+				target += 128;
+			else
+				target += 160;
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 + 128 - 1] >= goal)
+				target += 192;
+			else
+				target += 224;
+		}
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdlinear_v512_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V512_BLOCKSIZE]);
+	end_target = &(target[ntargets]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		return Intersection_find_scalar(goal, target, ntargets);
+	}
+
+	while (target[V512_BLOCKSIZE - 1] < goal) {
+		target += V512_BLOCKSIZE;
+		if (target >= stop_target) {
+			return (target - init_target)
+					+ Intersection_find_scalar(goal, target,/*ntargets*/
+					(end_target - target));
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V512_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V512_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 - 1] >= goal) {
+				} else {
+					target += 32;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 32 - 1] >= goal) {
+					target += 64;
+				} else {
+					target += 96;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 64 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 96 - 1] >= goal) {
+					target += 128;
+				} else {
+					target += 160;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 96 - 1] >= goal) {
+					target += 192;
+				} else {
+					target += 224;
+				}
+			}
+		}
+	} else {
+		if (target[V512_BLOCKSIZE / 4 + 256 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 + 256 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 + 256 - 1] >= goal) {
+					target += 256;
+				} else {
+					target += 288;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 288 - 1] >= goal) {
+					target += 320;
+				} else {
+					target += 352;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 320 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 352 - 1] >= goal) {
+					target += 384;
+				} else {
+					target += 416;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 352 - 1] >= goal) {
+					target += 448;
+				} else {
+					target += 480;
+				}
+			}
+		}
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdlinear_v512_rough(int*foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *stop_target, *init_target;
+	long pos;
+
+	init_target = target;
+	stop_target = &(target[ntargets - V512_BLOCKSIZE]);
+
+	if (_UNLIKELY(target >= stop_target)) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	while (target[V512_BLOCKSIZE - 1] < goal) {
+		target += V512_BLOCKSIZE;
+		if (target >= stop_target) {
+			if ((pos = Intersection_find_scalar(goal, target, ntargets))
+					<= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+
+			return (target - init_target) + pos;
+		}
+	}
+
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V512_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V512_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 - 1] >= goal) {
+				} else {
+					target += 32;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 32 - 1] >= goal) {
+					target += 64;
+				} else {
+					target += 96;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 64 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 96 - 1] >= goal) {
+					target += 128;
+				} else {
+					target += 160;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 96 - 1] >= goal) {
+					target += 192;
+				} else {
+					target += 224;
+				}
+			}
+		}
+	} else {
+		if (target[V512_BLOCKSIZE / 4 + 256 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 + 256 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 + 256 - 1] >= goal) {
+					target += 256;
+				} else {
+					target += 288;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 288 - 1] >= goal) {
+					target += 320;
+				} else {
+					target += 352;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 320 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 352 - 1] >= goal) {
+					target += 384;
+				} else {
+					target += 416;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 352 - 1] >= goal) {
+					target += 448;
+				} else {
+					target += 480;
+				}
+			}
+		}
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdgallop_v4_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V4_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V4_BLOCKSIZE - 1] < goal) {
+		if (target + V4_BLOCKSIZE > stop_target)
+			return V4_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V4_BLOCKSIZE,
+							ntargets - V4_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V4_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V4_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V4_BLOCKSIZE;
+				if (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1]
+						< goal) {
+					target += V4_BLOCKSIZE * high_offset;
+					return V4_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V4_BLOCKSIZE * high_offset;
+				return V4_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V4_BLOCKSIZE * mid_offset + V4_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V4_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	UINT4 pos = V4_POS[_mm_movemask_ps(
+			_mm_castsi128_ps(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match)))];
+
+	return (target - init_target) + pos;
+}
+
+long simdgallop_v4_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V4_BLOCKSIZE;
 	end_target = target + ntargets;
 
 	if (target >= stop_target) {
@@ -356,11 +1250,11 @@ long simdgallop_v3_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V3_BLOCKSIZE - 1] < goal) {
-		if (target + V3_BLOCKSIZE > stop_target) {
-			pos = V3_BLOCKSIZE
-					+ Intersection_find_scalar(goal, target + V3_BLOCKSIZE,
-							ntargets - V3_BLOCKSIZE);
+	if (target[V4_BLOCKSIZE - 1] < goal) {
+		if (target + V4_BLOCKSIZE > stop_target) {
+			pos = V4_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V4_BLOCKSIZE,
+							ntargets - V4_BLOCKSIZE);
 			if (pos <= ntargets && target[pos] == goal)
 				*foundp = 1;
 			else
@@ -368,348 +1262,1113 @@ long simdgallop_v3_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			return pos;
 		}
 		/* Galloping search */
-		high_offset = 1;
-		while (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1] < goal) {
-			if (target + (high_offset << 1) * V3_BLOCKSIZE <= stop_target) {
+		while (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V4_BLOCKSIZE <= stop_target) {
 				low_offset = high_offset;
 				high_offset <<= 1;
-			} else if (target + V3_BLOCKSIZE * (high_offset + 1)
+			} else if (target + V4_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
-				high_offset = (stop_target - target) / V3_BLOCKSIZE;
-				if (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1]
+				high_offset = (stop_target - target) / V4_BLOCKSIZE;
+				if (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1]
 						< goal) {
-					target += V3_BLOCKSIZE * high_offset;
+					target += V4_BLOCKSIZE * high_offset;
 					pos = Intersection_find_scalar(goal, target,
 							(end_target - target));
-					if (pos + V3_BLOCKSIZE * high_offset <= ntargets
+					if (pos + V4_BLOCKSIZE * high_offset <= ntargets
 							&& target[pos] == goal)
 						*foundp = 1;
 					else
 						*foundp = 0;
-					return pos + V3_BLOCKSIZE * high_offset;
+					return pos + V4_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
-				target += V3_BLOCKSIZE * high_offset;
+				target += V4_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
-				if (pos + V3_BLOCKSIZE * high_offset <= ntargets
+				if (pos + V4_BLOCKSIZE * high_offset <= ntargets
 						&& target[pos] == goal)
 					*foundp = 1;
 				else
 					*foundp = 0;
-				return pos + V3_BLOCKSIZE * high_offset;
+				return pos + V4_BLOCKSIZE * high_offset;
 			}
 		}			// while-loop
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
-			if (target[V3_BLOCKSIZE * mid_offset + V3_BLOCKSIZE - 1] < goal) {
+			if (target[V4_BLOCKSIZE * mid_offset + V4_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
 				high_offset = mid_offset;
 			}
 		}
-		target += V3_BLOCKSIZE * high_offset;
+		target += V4_BLOCKSIZE * high_offset;
 	}
 	// now search the block [target, target+block_size-1]
-	__m128i Match;
-	__m128i F0, Q0, Q1, Q2, Q3;
-	Match = _mm_set1_epi32(goal);
+	__m128i Match = _mm_set1_epi32(goal);
 
-	if (target[SIMDWIDTH * 16 - 1] >= goal) {
-		if (target[SIMDWIDTH * 8 - 1] >= goal) {
-			base = 0;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
-							Match));
-		} else {
-			base = 32;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 8),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 9),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 10),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 11),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 12),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 13),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 14),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 15),
-							Match));
-		}
-	} else {
-		if (target[SIMDWIDTH * 24 - 1] >= goal) {
-			base = 64;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 0 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 1 + 16),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 2 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 3 + 16),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 4 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 5 + 16),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 6 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 7 + 16),
-							Match));
-		} else {
-			base = 96;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 8 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 9 + 16),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 10 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 11 + 16),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 12 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 13 + 16),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 14 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 15 + 16),
-							Match));
-		}
-	}
-
-	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	__m128i F0 = _mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+			Match);
 	if (_mm_testz_si128(F0, F0))
 		*foundp = 0;
 	else
 		*foundp = 1;
-	return (target - init_target) + base;
+	return (target - init_target);
 }
 
-long simdgallop_v3_greedy(UINT4 goal, const UINT4 *target, long ntargets) {
+long simdgallop_v8_exact(UINT4 goal, const UINT4 *target, long ntargets) {
 	const UINT4 *end_target, *stop_target, *init_target;
-	const UINT4 SIMDWIDTH = 4;
-	const UINT4 V3_BLOCKSIZE = SIMDWIDTH * 32;
 
-	long low_offset, mid_offset, high_offset;
-	long pos, base;
+	long low_offset = 0, mid_offset, high_offset = 1;
 
 	init_target = target;
-	stop_target = target + ntargets - V3_BLOCKSIZE;
+	stop_target = target + ntargets - V8_BLOCKSIZE;
 	end_target = target + ntargets;
 
 	if (target >= stop_target)
 		return Intersection_find_scalar(goal, target, ntargets);
 
-	if (target[V3_BLOCKSIZE - 1] < goal) {
-		if (target + V3_BLOCKSIZE > stop_target)
-			return V3_BLOCKSIZE
-					+ Intersection_find_scalar(goal, target + V3_BLOCKSIZE,
-							ntargets - V3_BLOCKSIZE);
+	if (target[V8_BLOCKSIZE - 1] < goal) {
+		if (target + V8_BLOCKSIZE > stop_target)
+			return V8_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V8_BLOCKSIZE,
+							ntargets - V8_BLOCKSIZE);
 
 		/* Galloping search */
-		high_offset = 1;
-		while (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1] < goal) {
-			if (target + (high_offset << 1) * V3_BLOCKSIZE <= stop_target) {
+		while (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V8_BLOCKSIZE <= stop_target) {
 				low_offset = high_offset;
 				high_offset <<= 1;
-			} else if (target + V3_BLOCKSIZE * (high_offset + 1)
+			} else if (target + V8_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
-				high_offset = (stop_target - target) / V3_BLOCKSIZE;
-				if (target[V3_BLOCKSIZE * high_offset + V3_BLOCKSIZE - 1]
+				high_offset = (stop_target - target) / V8_BLOCKSIZE;
+				if (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1]
 						< goal) {
-					target += V3_BLOCKSIZE * high_offset;
-					return V3_BLOCKSIZE * high_offset
+					target += V8_BLOCKSIZE * high_offset;
+					return V8_BLOCKSIZE * high_offset
 							+ Intersection_find_scalar(goal, target,
 									(end_target - target));
 				} else
 					break;
 			} else {
-				target += V3_BLOCKSIZE * high_offset;
-				return V3_BLOCKSIZE * high_offset
+				target += V8_BLOCKSIZE * high_offset;
+				return V8_BLOCKSIZE * high_offset
 						+ Intersection_find_scalar(goal, target,
 								(end_target - target));
 			}
 		}			// while-loop
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
-			if (target[V3_BLOCKSIZE * mid_offset + V3_BLOCKSIZE - 1] < goal) {
+			if (target[V8_BLOCKSIZE * mid_offset + V8_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
 				high_offset = mid_offset;
 			}
 		}
-		target += V3_BLOCKSIZE * high_offset;
+		target += V8_BLOCKSIZE * high_offset;
 	}
 	// now search the block [target, target+block_size-1]
-	__m128i Match;
-	__m128i F0, Q0, Q1, Q2, Q3;
-	Match = _mm_set1_epi32(goal);
+	__m128i Match = _mm_set1_epi32(goal);
+	long pos;
 
-	if (target[SIMDWIDTH * 16 - 1] >= goal) {
-		if (target[SIMDWIDTH * 8 - 1] >= goal) {
-			base = 0;
-			Q0 = _mm_or_si128(
+	__m128i F0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdgallop_v8_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V8_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V8_BLOCKSIZE - 1] < goal) {
+		if (target + V8_BLOCKSIZE > stop_target) {
+			pos = V8_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V8_BLOCKSIZE,
+							ntargets - V8_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V8_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V8_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V8_BLOCKSIZE;
+				if (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1]
+						< goal) {
+					target += V8_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V8_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V8_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V8_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V8_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V8_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V8_BLOCKSIZE * mid_offset + V8_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V8_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+
+	__m128i F0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdgallop_v16_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V16_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V16_BLOCKSIZE - 1] < goal) {
+		if (target + V16_BLOCKSIZE > stop_target)
+			return V16_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V16_BLOCKSIZE,
+							ntargets - V16_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V16_BLOCKSIZE;
+				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
+						< goal) {
+					target += V16_BLOCKSIZE * high_offset;
+					return V16_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V16_BLOCKSIZE * high_offset;
+				return V16_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V16_BLOCKSIZE * mid_offset + V16_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V16_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	long pos;
+
+	__m128i F0 = _mm_or_si128(
+			_mm_or_si128(
+					_mm_srli_epi32(
+							_mm_cmpeq_epi32(
+									_mm_lddqu_si128((__m128i *) target + 0),
+									Match), 32 - 1),
+					_mm_srli_epi32(
+							_mm_cmpeq_epi32(
+									_mm_lddqu_si128((__m128i *) target + 1),
+									Match), 28 - 1)),
+			_mm_or_si128(
+					_mm_srli_epi32(
+							_mm_cmpeq_epi32(
+									_mm_lddqu_si128((__m128i *) target + 2),
+									Match), 24 - 1),
+					_mm_srli_epi32(
+							_mm_cmpeq_epi32(
+									_mm_lddqu_si128((__m128i *) target + 3),
+									Match), 20 - 1)));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdgallop_v16_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V16_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V16_BLOCKSIZE - 1] < goal) {
+		if (target + V16_BLOCKSIZE > stop_target) {
+			pos = V16_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V16_BLOCKSIZE,
+							ntargets - V16_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V16_BLOCKSIZE;
+				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
+						< goal) {
+					target += V16_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V16_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V16_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V16_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V16_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V16_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V16_BLOCKSIZE * mid_offset + V16_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V16_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+
+	__m128i F0 = _mm_or_si128(
+			_mm_or_si128(
 					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
 							Match),
 					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
-							Match));
-			Q1 = _mm_or_si128(
+							Match)),
+			_mm_or_si128(
 					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
 							Match),
 					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
-							Match));
-		} else {
-			base = 32;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 8),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 9),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 10),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 11),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 12),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 13),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 14),
-							Match),
-					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 15),
-							Match));
+							Match)));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdgallop_v32_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V32_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V32_BLOCKSIZE - 1] < goal) {
+		if (target + V32_BLOCKSIZE > stop_target)
+			return V32_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V32_BLOCKSIZE,
+							ntargets - V32_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V32_BLOCKSIZE;
+				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
+						< goal) {
+					target += V32_BLOCKSIZE * high_offset;
+					return V32_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V32_BLOCKSIZE * high_offset;
+				return V32_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V32_BLOCKSIZE * mid_offset + V32_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
 		}
-	} else {
-		if (target[SIMDWIDTH * 24 - 1] >= goal) {
-			base = 64;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 0 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 1 + 16),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 2 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 3 + 16),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 4 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 5 + 16),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 6 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 7 + 16),
-							Match));
-		} else {
-			base = 96;
-			Q0 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 8 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 9 + 16),
-							Match));
-			Q1 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 10 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 11 + 16),
-							Match));
-			Q2 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 12 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 13 + 16),
-							Match));
-			Q3 = _mm_or_si128(
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 14 + 16),
-							Match),
-					_mm_cmpeq_epi32(
-							_mm_lddqu_si128((__m128i *) target + 15 + 16),
-							Match));
-		}
+		target += V32_BLOCKSIZE * high_offset;
 	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdgallop_v32_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V32_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V32_BLOCKSIZE - 1] < goal) {
+		if (target + V32_BLOCKSIZE > stop_target) {
+			pos = V32_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V32_BLOCKSIZE,
+							ntargets - V32_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V32_BLOCKSIZE;
+				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
+						< goal) {
+					target += V32_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V32_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V32_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V32_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V32_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V32_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V32_BLOCKSIZE * mid_offset + V32_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V32_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
 
 	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
 	if (_mm_testz_si128(F0, F0))
-		return (target - init_target) + base;
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdgallop_v64_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V64_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V64_BLOCKSIZE - 1] < goal) {
+		if (target + V64_BLOCKSIZE > stop_target)
+			return V64_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
+							ntargets - V64_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
+						< goal) {
+					target += V64_BLOCKSIZE * high_offset;
+					return V64_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V64_BLOCKSIZE * high_offset;
+				return V64_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V64_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V64_BLOCKSIZE / 2 - 1] < goal)
+		target += 32;
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdgallop_v64_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V64_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V64_BLOCKSIZE - 1] < goal) {
+		if (target + V64_BLOCKSIZE > stop_target) {
+			pos = V64_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
+							ntargets - V64_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
+						< goal) {
+					target += V64_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V64_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V64_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V64_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V64_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V64_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V64_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V64_BLOCKSIZE / 2 - 1] < goal)
+		target += 32;
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+/* return the exact position of intersection */
+long simdgallop_v128_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V128_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V128_BLOCKSIZE - 1] < goal) {
+		if (target + V128_BLOCKSIZE > stop_target)
+			return V128_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
+							ntargets - V128_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
+						< goal) {
+					target += V128_BLOCKSIZE * high_offset;
+					return V128_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V128_BLOCKSIZE * high_offset;
+				return V128_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V128_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V128_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V128_BLOCKSIZE / 4 - 1] < goal)
+			target += 32;
+	} else {
+		if (target[V128_BLOCKSIZE * 3 / 4 - 1] >= goal)
+			target += 64;
+		else
+			target += 96;
+	}
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+/* return the head-position of mathced block */
+long simdgallop_v128_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V128_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V128_BLOCKSIZE - 1] < goal) {
+		if (target + V128_BLOCKSIZE > stop_target) {
+			pos = V128_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
+							ntargets - V128_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
+						< goal) {
+					target += V128_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V128_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V128_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V128_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V128_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V128_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V128_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V128_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V128_BLOCKSIZE / 4 - 1] < goal)
+			target += 32;
+	} else {
+		if (target[V128_BLOCKSIZE * 3 / 4 - 1] >= goal)
+			target += 64;
+		else
+			target += 96;
+	}
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+/* return the exact position of intersection */
+/* return the head-position of mathced block */
+long simdgallop_v128_greedy(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V128_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V128_BLOCKSIZE - 1] < goal) {
+		if (target + V128_BLOCKSIZE > stop_target)
+			return V128_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
+							ntargets - V128_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
+						< goal) {
+					target += V128_BLOCKSIZE * high_offset;
+					return V128_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V128_BLOCKSIZE * high_offset;
+				return V128_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V128_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V128_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V128_BLOCKSIZE / 4 - 1] < goal)
+			target += 32;
+	} else {
+		if (target[V128_BLOCKSIZE * 3 / 4 - 1] >= goal)
+			target += 64;
+
+		else
+			target += 96;
+	}
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		return (target - init_target);
 	else {
-		target += base;
 		Q0 = _mm_or_si128(
 				_mm_srli_epi32(
 						_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
@@ -751,16 +2410,587 @@ long simdgallop_v3_greedy(UINT4 goal, const UINT4 *target, long ntargets) {
 	}
 }
 
+long simdgallop_v256_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V256_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V256_BLOCKSIZE - 1] < goal) {
+		if (target + V256_BLOCKSIZE > stop_target)
+			return V256_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
+							ntargets - V256_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
+						< goal) {
+					target += V256_BLOCKSIZE * high_offset;
+					return V256_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V256_BLOCKSIZE * high_offset;
+				return V256_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V256_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V256_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V256_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 - 1] < goal)
+				target += 32;
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 - 1] >= goal) {
+				target += 64;
+			} else
+				target += 96;
+		}
+	} else {
+		if (target[V256_BLOCKSIZE / 4 + 128 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 + 128 - 1] >= goal)
+				target += 128;
+			else
+				target += 160;
+
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 + 128 - 1] >= goal)
+				target += 192;
+			else
+				target += 224;
+		}
+	}
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdgallop_v256_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V256_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V256_BLOCKSIZE - 1] < goal) {
+		if (target + V256_BLOCKSIZE > stop_target) {
+			pos = V256_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
+							ntargets - V256_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
+						< goal) {
+					target += V256_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V256_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V256_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V256_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V256_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V256_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V256_BLOCKSIZE * high_offset;
+	}
+// now search the block [target, target+block_size-1]
+
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V256_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V256_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 - 1] < goal)
+				target += 32;
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 - 1] >= goal)
+				target += 64;
+			else
+				target += 96;
+		}
+	} else {
+		if (target[V256_BLOCKSIZE / 4 + 128 - 1] >= goal) {
+			if (target[V256_BLOCKSIZE / 8 + 128 - 1] >= goal)
+				target += 128;
+			else
+				target += 160;
+		} else {
+			if (target[V256_BLOCKSIZE / 8 * 3 + 128 - 1] >= goal)
+				target += 192;
+			else
+				target += 224;
+		}
+	}
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
+long simdgallop_v512_exact(UINT4 goal, const UINT4 *target, long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+
+	init_target = target;
+	stop_target = target + ntargets - V512_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target)
+		return Intersection_find_scalar(goal, target, ntargets);
+
+	if (target[V512_BLOCKSIZE - 1] < goal) {
+		if (target + V512_BLOCKSIZE > stop_target)
+			return V512_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
+							ntargets - V512_BLOCKSIZE);
+
+		/* Galloping search */
+		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
+						< goal) {
+					target += V512_BLOCKSIZE * high_offset;
+					return V512_BLOCKSIZE * high_offset
+							+ Intersection_find_scalar(goal, target,
+									(end_target - target));
+				} else
+					break;
+			} else {
+				target += V512_BLOCKSIZE * high_offset;
+				return V512_BLOCKSIZE * high_offset
+						+ Intersection_find_scalar(goal, target,
+								(end_target - target));
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V512_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+	long pos;
+
+	if (target[V512_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V512_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 - 1] >= goal) {
+				} else {
+					target += 32;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 32 - 1] >= goal) {
+					target += 64;
+				} else {
+					target += 96;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 64 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 96 - 1] >= goal) {
+					target += 128;
+				} else {
+					target += 160;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 96 - 1] >= goal) {
+					target += 192;
+				} else {
+					target += 224;
+				}
+			}
+		}
+	} else {
+		if (target[V512_BLOCKSIZE / 4 + 256 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 + 256 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 + 256 - 1] >= goal) {
+					target += 256;
+				} else {
+					target += 288;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 288 - 1] >= goal) {
+					target += 320;
+				} else {
+					target += 352;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 320 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 352 - 1] >= goal) {
+					target += 384;
+				} else {
+					target += 416;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 352 - 1] >= goal) {
+					target += 448;
+				} else {
+					target += 480;
+				}
+			}
+		}
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+							Match), 32 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1),
+							Match), 28 - 1));
+	Q1 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2),
+							Match), 24 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3),
+							Match), 20 - 1));
+	Q2 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4),
+							Match), 16 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5),
+							Match), 12 - 1));
+	Q3 = _mm_or_si128(
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6),
+							Match), 8 - 1),
+			_mm_srli_epi32(
+					_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7),
+							Match), 4 - 1));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+
+	UINT4 *hits = (UINT4*) &F0;
+#ifdef __AVX2__
+	F0 = _mm_sllv_epi32(F0,_mm_set_epi32(3,2,1,0));
+	pos = __builtin_clz(hits[0] | hits[1] | hits[2] | hits[3]);
+#else
+	pos = __builtin_clz(
+			hits[0] | (hits[1] << 1) | (hits[2] << 2) | (hits[3] << 3));
+#endif
+	return (target - init_target) + (31 - pos);
+}
+
+long simdgallop_v512_rough(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V512_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V512_BLOCKSIZE - 1] < goal) {
+		if (target + V512_BLOCKSIZE > stop_target) {
+			pos = V512_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
+							ntargets - V512_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
+						< goal) {
+					target += V512_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V512_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V512_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V512_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V512_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V512_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V512_BLOCKSIZE * high_offset;
+	}
+// now search the block [target, target+block_size-1]
+
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0, Q0, Q1, Q2, Q3;
+
+	if (target[V512_BLOCKSIZE / 2 - 1] >= goal) {
+		if (target[V512_BLOCKSIZE / 4 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 - 1] >= goal) {
+				} else {
+					target += 32;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 32 - 1] >= goal) {
+					target += 64;
+				} else {
+					target += 96;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 64 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 96 - 1] >= goal) {
+					target += 128;
+				} else {
+					target += 160;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 96 - 1] >= goal) {
+					target += 192;
+				} else {
+					target += 224;
+				}
+			}
+		}
+	} else {
+		if (target[V512_BLOCKSIZE / 4 + 256 - 1] >= goal) {
+			if (target[V512_BLOCKSIZE / 8 + 256 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 16 + 256 - 1] >= goal) {
+					target += 256;
+				} else {
+					target += 288;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 8 + 288 - 1] >= goal) {
+					target += 320;
+				} else {
+					target += 352;
+				}
+			}
+		} else {
+			if (target[V512_BLOCKSIZE / 4 + 320 - 1] >= goal) {
+				if (target[V512_BLOCKSIZE / 8 + 352 - 1] >= goal) {
+					target += 384;
+				} else {
+					target += 416;
+				}
+			} else {
+				if (target[V512_BLOCKSIZE / 4 + 352 - 1] >= goal) {
+					target += 448;
+				} else {
+					target += 480;
+				}
+			}
+		}
+	}
+
+	Q0 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 1), Match));
+	Q1 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 2), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 3), Match));
+	Q2 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 4), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 5), Match));
+	Q3 = _mm_or_si128(
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 6), Match),
+			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 7), Match));
+
+	F0 = _mm_or_si128(_mm_or_si128(Q0, Q1), _mm_or_si128(Q2, Q3));
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
 ////////////////////////////////////////////////////////////////////
 template<setIntersectionFunction FUNCTION>
 void small_vs_small(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
-	// XXX: we'd like to use rvalue reference, however, it has conflicts
-	// with "const", and it finally become an copy operation.
+// XXX: we'd like to use rvalue reference, however, it has conflicts
+// with "const", and it finally become an copy operation.
 	std::vector<uint32_t> intersection(std::move(*it++));
 	for (; it != sets.end(); it++) {
-		// here we can change the intersection function to any regular scalar
-		// or vector pair-set intersection algorithms.
+// here we can change the intersection function to any regular scalar
+// or vector pair-set intersection algorithms.
 		size_t inter_length = FUNCTION(intersection.data(), intersection.size(),
 				it->data(), it->size(), intersection.data());
 		intersection.resize(inter_length);
@@ -769,7 +2999,7 @@ void small_vs_small(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 template<intersectionfindfunction FINDFUNCTION>
-void set_vs_set(const mySet &sets, std::vector<uint32_t> &out) {
+void set_vs_set_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	size_t count = 0, currentset = 0;
 	out.resize(sets.begin()->size());
 
@@ -808,7 +3038,7 @@ void set_vs_set(const mySet &sets, std::vector<uint32_t> &out) {
 
 // only used for find-functions that return rough position
 template<flaggedintersectionfindfunction FINDFUNCTION>
-void set_vs_set_flagged(const mySet &sets, std::vector<uint32_t> &out) {
+void set_vs_set_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	size_t count = 0, currentset = 0;
 	out.resize(sets.begin()->size());
 
@@ -847,7 +3077,7 @@ void set_vs_set_flagged(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 template<intersectionfindfunction FINDFUNCTION>
-void swapping_set_vs_set(const mySet& sets, std::vector<uint32_t>& out) {
+void swapping_set_vs_set_exact(const mySet& sets, std::vector<uint32_t>& out) {
 	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
 	out.resize(sets.begin()->size());
 
@@ -865,20 +3095,12 @@ void swapping_set_vs_set(const mySet& sets, std::vector<uint32_t>& out) {
 	size_t count = 0, currentset = 1;
 
 	while (vsets[0].second != vsets[0].first->size()) {
-		//simd gallop
 		vsets[currentset].second += FINDFUNCTION(
 				vsets[0].first->at(vsets[0].second),
 				vsets[currentset].first->data() + vsets[currentset].second,
 				vsets[currentset].first->size() - 1 - vsets[currentset].second);
 
-		if (_LIKELY(
-				vsets[currentset].first->at(vsets[currentset].second)
-						> vsets[0].first->at(vsets[0].second))) {
-			// greater
-			vsets[0].second++;
-			sort_remaining();
-			currentset = 1;
-		} else if (vsets[currentset].first->at(vsets[currentset].second)
+		if (vsets[currentset].first->at(vsets[currentset].second)
 				== vsets[0].first->at(vsets[0].second)) {
 			// equal
 			vsets[currentset].second++;
@@ -890,9 +3112,65 @@ void swapping_set_vs_set(const mySet& sets, std::vector<uint32_t>& out) {
 				sort_remaining();
 				currentset = 1;
 			}
-		} else {
-			// less
+		} else if (_UNLIKELY(vsets[currentset].first->back() < *value)) {
 			break;
+		} else if (_UNLIKELY(++vsets[0].second == vsets[0].first->size()))
+			break; // note here @vsets[0].second alreadly self-add 1
+		else {
+			// greater
+			//vsets[0].second++;
+			sort_remaining();
+			currentset = 1;
+		}
+	}
+	out.resize(count);
+}
+
+template<flaggedintersectionfindfunction FINDFUNCTION>
+void swapping_set_vs_set_rough(const mySet& sets, std::vector<uint32_t>& out) {
+	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
+	out.resize(sets.begin()->size());
+
+	auto sort_remaining = [&] {std::sort(vsets.begin(), vsets.end(),
+				[](const std::pair<mySet::iterator, size_t>& lhs,
+						const std::pair<mySet::iterator, size_t>& rhs) {
+					return (lhs.first->size() - lhs.second) <
+					(rhs.first->size() - rhs.second);
+				});};
+
+	for (auto it = sets.begin(); it != sets.end(); it++)
+		vsets.emplace_back(it, 0);
+
+	auto value = out.begin();
+	size_t count = 0, currentset = 1;
+	int foundp;
+
+	while (vsets[0].second != vsets[0].first->size()) {
+		vsets[currentset].second += FINDFUNCTION(&foundp,
+				vsets[0].first->at(vsets[0].second),
+				vsets[currentset].first->data() + vsets[currentset].second,
+				vsets[currentset].first->size() - 1 - vsets[currentset].second);
+
+		if (foundp == 1) {
+			// equal
+			vsets[currentset].second++;
+			if (++currentset == vsets.size()) {
+				*value++ = vsets[0].first->at(vsets[0].second);
+				count++;
+				vsets[0].second++;
+				// roll over
+				sort_remaining();
+				currentset = 1;
+			}
+		} else if (_UNLIKELY(vsets[currentset].first->back() < *value)) {
+			break;
+		} else if (_UNLIKELY(++vsets[0].second == vsets[0].first->size()))
+			break; // note here @vsets[0].second alreadly self-add 1
+		else {
+			// greater
+			//vsets[0].second++;
+			sort_remaining();
+			currentset = 1;
 		}
 	}
 	out.resize(count);
@@ -908,10 +3186,10 @@ void adaptive_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 	it++;
 	std::vector<size_t> index(sets.size(), 0);
 
-	// Here we do not adopt the following conditional statement
-	// "while (index[currentset] <= it->size() - 1 || it->back() >= *value)"
-	// because one condition is indispensable inside the loop, assign it
-	// on the precise position will reduce trivial repetitive judgements.
+// Here we do not adopt the following conditional statement
+// "while (index[currentset] <= it->size() - 1 || it->back() >= *value)"
+// because one condition is indispensable inside the loop, assign it
+// on the precise position will reduce trivial repetitive judgements.
 	while (true) {
 		if (it->at(index[currentset] + spansize) >= *value) {
 			//binary search
@@ -1054,7 +3332,7 @@ void small_adaptive_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 template<intersectionfindfunction FINDFUNCTION>
-void sequential(const mySet &sets, std::vector<uint32_t> &out) {
+void sequential_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(sets.begin()->size());
 	auto value = out.begin();
 	*value = sets.begin()->at(0);
@@ -1064,7 +3342,6 @@ void sequential(const mySet &sets, std::vector<uint32_t> &out) {
 	std::vector<size_t> index(sets.size(), 0);
 
 	while (_LIKELY(index[currentset] < it->size())) {
-		//SIMD gallop
 		index[currentset] += FINDFUNCTION(*value,
 				it->data() + index[currentset],
 				it->size() - 1 - index[currentset]);
@@ -1082,9 +3359,60 @@ void sequential(const mySet &sets, std::vector<uint32_t> &out) {
 				currentset = ++currentset % sets.size();
 				it = ++it == sets.end() ? sets.begin() : it;
 			}
-		} else if (_UNLIKELY(it->back() < *value)) {
+		} else if (_UNLIKELY(it->back() < *value))
 			break;
-		} else if (_UNLIKELY(++index[elimset] == it_elim->size()))
+		else if (_UNLIKELY(++index[elimset] == it_elim->size()))
+			break;
+		else {
+			// greater, however reaches the end.
+			// XXX: following two sentences unreachable
+//			if (_UNLIKELY(index[currentset] + 1 > it->size()))
+//				break;
+			// greater and doesn't reach the end
+			// go on intersecting
+			*value = it->at(index[currentset]);
+			elimset = currentset;
+			it_elim = it;
+
+			currentset = ++currentset % sets.size();
+			it = ++it == sets.end() ? sets.begin() : it;
+		}
+	}
+	out.resize(count);
+}
+
+template<flaggedintersectionfindfunction FINDFUNCTION>
+void sequential_rough(const mySet &sets, std::vector<uint32_t> &out) {
+	out.resize(sets.begin()->size());
+	auto value = out.begin();
+	*value = sets.begin()->at(0);
+	size_t count = 0, elimset = 0, currentset = 1;
+	mySet::iterator it = sets.begin();
+	mySet::iterator it_elim = it++;
+	std::vector<size_t> index(sets.size(), 0);
+	int foundp;
+
+	while (_LIKELY(index[currentset] < it->size())) {
+		index[currentset] += FINDFUNCTION(&foundp, *value,
+				it->data() + index[currentset],
+				it->size() - 1 - index[currentset]);
+		if (foundp == 1) {
+			index[currentset]++;
+			currentset = ++currentset % sets.size();
+			it = ++it == sets.end() ? sets.begin() : it;
+			if (currentset == elimset) {
+				count++;
+				// update eliminator and move to next set
+				if (_UNLIKELY(++index[currentset] == it->size()))
+					break;
+				*++value = it->at(index[currentset]);
+
+				currentset = ++currentset % sets.size();
+				it = ++it == sets.end() ? sets.begin() : it;
+			}
+		} else if (_UNLIKELY(it->back() < *value))
+			break;
+		else if (_UNLIKELY(++index[elimset] == it_elim->size()))
 			break;
 		else {
 			// greater, however reaches the end.
@@ -1105,7 +3433,101 @@ void sequential(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 template<intersectionfindfunction FINDFUNCTION>
-void max(const mySet &sets, std::vector<uint32_t> &out) {
+void small_sequential_exact(const mySet &sets, std::vector<uint32_t> &out) {
+	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
+	out.resize(sets.begin()->size());
+
+	auto sort_remaining = [&] {std::sort(vsets.begin(), vsets.end(),
+				[](const std::pair<mySet::iterator, size_t>& lhs,
+						const std::pair<mySet::iterator, size_t>& rhs) {
+					return (lhs.first->size() - lhs.second) <
+					(rhs.first->size() - rhs.second);
+				});};
+
+	for (auto it = sets.begin(); it != sets.end(); it++)
+		vsets.emplace_back(it, 0);
+
+	auto value = out.begin();
+	*value = sets.begin()->at(0);
+	size_t count = 0, currentset = 1;
+
+	while (vsets[0].second != vsets[0].first->size()) {
+		vsets[currentset].second += FINDFUNCTION(
+				vsets[0].first->at(vsets[0].second),
+				vsets[currentset].first->data() + vsets[currentset].second,
+				vsets[currentset].first->size() - 1 - vsets[currentset].second);
+		if (vsets[currentset].first->at(vsets[currentset].second)
+				== vsets[0].first->at(vsets[0].second)) {
+			vsets[currentset].second++;
+			if (++currentset == vsets.size()) {
+				*value++ = vsets[0].first->at(vsets[0].second);
+				count++;
+				vsets[0].second++;
+				sort_remaining();
+				currentset = 1;
+			}
+		} else if (_UNLIKELY(
+				vsets[currentset].first->back()
+						< vsets[0].first->at(vsets[0].second)))
+			break;
+		else {
+			vsets[0].second++;
+			sort_remaining();
+			currentset = 1;
+		}
+	}
+	out.resize(count);
+}
+
+template<flaggedintersectionfindfunction FINDFUNCTION>
+void small_sequential_rough(const mySet &sets, std::vector<uint32_t> &out) {
+	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
+	out.resize(sets.begin()->size());
+
+	auto sort_remaining = [&] {std::sort(vsets.begin(), vsets.end(),
+				[](const std::pair<mySet::iterator, size_t>& lhs,
+						const std::pair<mySet::iterator, size_t>& rhs) {
+					return (lhs.first->size() - lhs.second) <
+					(rhs.first->size() - rhs.second);
+				});};
+
+	for (auto it = sets.begin(); it != sets.end(); it++)
+		vsets.emplace_back(it, 0);
+
+	auto value = out.begin();
+	*value = sets.begin()->at(0);
+	size_t count = 0, elimset = 0, currentset = 1;
+	int foundp;
+
+	while (vsets[0].second != vsets[0].first->size()) {
+		vsets[currentset].second += FINDFUNCTION(&foundp,
+				vsets[0].first->at(vsets[0].second),
+				vsets[currentset].first->data() + vsets[currentset].second,
+				vsets[currentset].first->size() - 1 - vsets[currentset].second);
+		if (foundp == 1) {
+			vsets[currentset].second++;
+			if (++currentset == vsets.size()) {
+				*value++ = vsets[0].first->at(vsets[0].second);
+				count++;
+				vsets[0].second++;
+				sort_remaining();
+				currentset = 1;
+			}
+		} else if (_UNLIKELY(
+				vsets[currentset].first->back()
+						< vsets[0].first->at(vsets[0].second)))
+			break;
+		else {
+			vsets[0].second++;
+			sort_remaining();
+			currentset = 1;
+		}
+	}
+	out.resize(count);
+}
+
+template<intersectionfindfunction FINDFUNCTION>
+void max_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(sets.begin()->size());
 	auto value = out.begin();
 	*value = sets.begin()->at(0);
@@ -1115,7 +3537,6 @@ void max(const mySet &sets, std::vector<uint32_t> &out) {
 	std::vector<size_t> index(sets.size(), 0);
 
 	while (_LIKELY(index[currentset] < it->size())) {
-		//SIMD gallop
 		index[currentset] += FINDFUNCTION(*value,
 				it->data() + index[currentset],
 				it->size() - 1 - index[currentset]);
@@ -1146,9 +3567,78 @@ void max(const mySet &sets, std::vector<uint32_t> &out) {
 //				currentset = ++currentset % sets.size();
 //				it = ++it == sets.end() ? sets.begin() : it;
 			}
-		} else if (_UNLIKELY(it->back() < *value)) {
+		} else if (_UNLIKELY(it->back() < *value))
 			break;
-		} else if (_UNLIKELY(++index[elimset] == it_elim->size()))
+		else if (_UNLIKELY(++index[elimset] == it_elim->size()))
+			break;
+		else {
+			intersect_count = 0;
+			if (currentset == 0
+					|| it_start->at(index[0]) > it->at(index[currentset])) {
+				*value = it_start->at(index[0]);
+				elimset = 0;
+				currentset = 1;
+
+				it_elim = it = it_start;
+				it++;
+			} else {
+				*value = it->at(index[currentset]);
+				elimset = currentset;
+				currentset = 0;
+
+				it_elim = it;
+				it = it_start;
+			}
+		}
+	}
+	out.resize(count);
+}
+
+template<flaggedintersectionfindfunction FINDFUNCTION>
+void max_rough(const mySet &sets, std::vector<uint32_t> &out) {
+	out.resize(sets.begin()->size());
+	auto value = out.begin();
+	*value = sets.begin()->at(0);
+	size_t count = 0, intersect_count = 0, elimset = 0, currentset = 1;
+	mySet::iterator it = sets.begin();
+	mySet::iterator it_start = it++, it_elim = it_start;
+	std::vector<size_t> index(sets.size(), 0);
+	int foundp;
+
+	while (_LIKELY(index[currentset] < it->size())) {
+		index[currentset] += FINDFUNCTION(&foundp, *value,
+				it->data() + index[currentset],
+				it->size() - 1 - index[currentset]);
+
+		if (foundp == 1) {
+			intersect_count++;
+			index[currentset]++;
+			++currentset;
+			++it;
+//			currentset = ++currentset % sets.size();
+//			it = ++it == sets.end() ? sets.begin() : it;
+			if (intersect_count == sets.size() - 1) {
+				// ensure positions of all the sets advance 1
+				index[elimset]++;
+				count++;
+				// update eliminator from set 0 and move to set 1
+				if (_UNLIKELY(index[0] == it_start->size()))
+					break;
+				intersect_count = 0;
+				*++value = it_start->at(index[0]);
+				currentset = 1;
+				elimset = 0;
+				it_elim = it = it_start;
+				it++;
+			} else if (currentset == elimset) {
+				++currentset;
+				++it;
+//				currentset = ++currentset % sets.size();
+//				it = ++it == sets.end() ? sets.begin() : it;
+			}
+		} else if (_UNLIKELY(it->back() < *value))
+			break;
+		else if (_UNLIKELY(++index[elimset] == it_elim->size()))
 			break;
 		else {
 			intersect_count = 0;

@@ -4,7 +4,7 @@
  *
  * sxs: this method first generates synthetic data and makes some statistics,
  * then it tests skipping intersection and user-requested intersection
- * before every intersection, it prerun all the data to ensure the correctness.
+ * before every intersection, it pre-run all the data to ensure the correctness.
  * (c) Daniel Lemire, http://lemire.me/en/
  */
 #include "common.h"
