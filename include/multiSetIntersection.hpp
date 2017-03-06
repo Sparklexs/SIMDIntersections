@@ -26,7 +26,7 @@ const UINT4 V4_POS[] = { 0, 0, 1, 0, 2, 0, 0, 0, 3 };
 
 typedef size_t (*setIntersectionFunction)(const uint32_t * set1,
 		const size_t length1, const uint32_t * set2, const size_t length2,
-		uint32_t *out); // used only for method `small_vs_small`
+		uint32_t *out); // used only for method `svs`
 
 // here adapt the range [start(0),end], different from __BSadvanceUntil
 // whose range is [start+1,end-1]
@@ -55,7 +55,7 @@ long scalarBinarySearch(UINT4 min, const UINT4 * array, long end) {
 
 // here adapt the range [start,end]
 long scalargallop(UINT4 min, const UINT4 * array, long end) {
-	// special handling for a possibly common sequential_exact case
+	// special handling for a possibly common sql_exact case
 	if ((0 >= end) or (*array >= min)) {
 		return 0;
 	}
@@ -2283,6 +2283,99 @@ long simdgallop_v128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	return (target - init_target);
 }
 
+long simdgallop_v128_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V128_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V128_BLOCKSIZE - 1] < goal) {
+		if (target + V128_BLOCKSIZE > stop_target) {
+			pos = V128_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
+							ntargets - V128_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
+						< goal) {
+					target += V128_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V128_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V128_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V128_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V128_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V128_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V128_BLOCKSIZE * high_offset;
+	}
+	// now search the block [target, target+block_size-1]
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0 = _mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+			Match);
+	int i = 0;
+	while (_mm_testz_si128(F0, F0) && ++i < V128_BLOCKSIZE / SIMDWIDTH) {
+		F0 = _mm_or_si128(F0,
+				_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + i),
+						Match));
+	}
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
 /* return the exact position of intersection */
 /* return the head-position of mathced block */
 long simdgallop_v128_greedy(UINT4 goal, const UINT4 *target, long ntargets) {
@@ -2658,6 +2751,101 @@ long simdgallop_v256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	return (target - init_target);
 }
 
+long simdgallop_v256_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V256_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V256_BLOCKSIZE - 1] < goal) {
+		if (target + V256_BLOCKSIZE > stop_target) {
+			pos = V256_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
+							ntargets - V256_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
+						< goal) {
+					target += V256_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V256_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V256_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V256_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V256_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V256_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V256_BLOCKSIZE * high_offset;
+	}
+// now search the block [target, target+block_size-1]
+
+	__m128i Match = _mm_set1_epi32(goal);
+
+	__m128i F0 = _mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+			Match);
+	int i = 0;
+	while (_mm_testz_si128(F0, F0) && ++i < V256_BLOCKSIZE / SIMDWIDTH) {
+		F0 = _mm_or_si128(F0,
+				_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + i),
+						Match));
+	}
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
 long simdgallop_v512_exact(UINT4 goal, const UINT4 *target, long ntargets) {
 	const UINT4 *end_target, *stop_target, *init_target;
 
@@ -2981,9 +3169,104 @@ long simdgallop_v512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	return (target - init_target);
 }
 
+long simdgallop_v512_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets) {
+	const UINT4 *end_target, *stop_target, *init_target;
+
+	long low_offset = 0, mid_offset, high_offset = 1;
+	long pos;
+
+	init_target = target;
+	stop_target = target + ntargets - V512_BLOCKSIZE;
+	end_target = target + ntargets;
+
+	if (target >= stop_target) {
+		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
+				&& target[pos] == goal)
+			*foundp = 1;
+		else
+			*foundp = 0;
+		return pos;
+	}
+
+	if (target[V512_BLOCKSIZE - 1] < goal) {
+		if (target + V512_BLOCKSIZE > stop_target) {
+			pos = V512_BLOCKSIZE
+					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
+							ntargets - V512_BLOCKSIZE);
+			if (pos <= ntargets && target[pos] == goal)
+				*foundp = 1;
+			else
+				*foundp = 0;
+			return pos;
+		}
+		/* Galloping search */
+		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				low_offset = high_offset;
+				high_offset <<= 1;
+			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
+					<= stop_target) {
+				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
+						< goal) {
+					target += V512_BLOCKSIZE * high_offset;
+					pos = Intersection_find_scalar(goal, target,
+							(end_target - target));
+					if (pos + V512_BLOCKSIZE * high_offset <= ntargets
+							&& target[pos] == goal)
+						*foundp = 1;
+					else
+						*foundp = 0;
+					return pos + V512_BLOCKSIZE * high_offset;
+				} else
+					break;
+			} else {
+				target += V512_BLOCKSIZE * high_offset;
+
+				pos = Intersection_find_scalar(goal, target,
+						(end_target - target));
+				if (pos + V512_BLOCKSIZE * high_offset <= ntargets
+						&& target[pos] == goal)
+					*foundp = 1;
+				else
+					*foundp = 0;
+				return pos + V512_BLOCKSIZE * high_offset;
+			}
+		}			// while-loop
+		while (low_offset < high_offset) {
+			mid_offset = (low_offset + high_offset) / 2;
+			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
+					< goal) {
+				low_offset = mid_offset + 1;
+			} else {
+				high_offset = mid_offset;
+			}
+		}
+		target += V512_BLOCKSIZE * high_offset;
+	}
+// now search the block [target, target+block_size-1]
+
+	__m128i Match = _mm_set1_epi32(goal);
+	__m128i F0 = _mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
+			Match);
+	int i = 0;
+	while (_mm_testz_si128(F0, F0) && ++i < V512_BLOCKSIZE / SIMDWIDTH) {
+		F0 = _mm_or_si128(F0,
+				_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + i),
+						Match));
+	}
+	if (_mm_testz_si128(F0, F0))
+		*foundp = 0;
+	else
+		*foundp = 1;
+	return (target - init_target);
+}
+
 ////////////////////////////////////////////////////////////////////
+/* small_vs_small */
 template<setIntersectionFunction FUNCTION>
-void small_vs_small(const mySet &sets, std::vector<uint32_t> &out) {
+void svs(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
 // XXX: we'd like to use rvalue reference, however, it has conflicts
 // with "const", and it finally become an copy operation.
@@ -2998,8 +3281,9 @@ void small_vs_small(const mySet &sets, std::vector<uint32_t> &out) {
 	out.swap(intersection);
 }
 
+/* set_vs_set */
 template<intersectionfindfunction FINDFUNCTION>
-void set_vs_set_exact(const mySet &sets, std::vector<uint32_t> &out) {
+void SvS_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	size_t count = 0, currentset = 0;
 	out.resize(sets.begin()->size());
 
@@ -3038,7 +3322,7 @@ void set_vs_set_exact(const mySet &sets, std::vector<uint32_t> &out) {
 
 // only used for find-functions that return rough position
 template<flaggedintersectionfindfunction FINDFUNCTION>
-void set_vs_set_rough(const mySet &sets, std::vector<uint32_t> &out) {
+void SvS_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	size_t count = 0, currentset = 0;
 	out.resize(sets.begin()->size());
 
@@ -3076,8 +3360,9 @@ void set_vs_set_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(count);
 }
 
+/* swapping_set_vs_set */
 template<intersectionfindfunction FINDFUNCTION>
-void swapping_set_vs_set_exact(const mySet& sets, std::vector<uint32_t>& out) {
+void s_SvS_exact(const mySet& sets, std::vector<uint32_t>& out) {
 	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
 	out.resize(sets.begin()->size());
 
@@ -3127,7 +3412,7 @@ void swapping_set_vs_set_exact(const mySet& sets, std::vector<uint32_t>& out) {
 }
 
 template<flaggedintersectionfindfunction FINDFUNCTION>
-void swapping_set_vs_set_rough(const mySet& sets, std::vector<uint32_t>& out) {
+void s_SvS_rough(const mySet& sets, std::vector<uint32_t>& out) {
 	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
 	out.resize(sets.begin()->size());
 
@@ -3177,7 +3462,8 @@ void swapping_set_vs_set_rough(const mySet& sets, std::vector<uint32_t>& out) {
 }
 
 /* for now we only implement its scalar version */
-void adaptive_scalar(const mySet &sets, std::vector<uint32_t> &out) {
+/* adapitve */
+void adp_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(sets.begin()->size());
 	auto value = out.begin();
 	*value = sets.begin()->at(0);
@@ -3249,7 +3535,8 @@ void adaptive_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 /* for now we only implement its scalar version */
-void small_adaptive_scalar(const mySet &sets, std::vector<uint32_t> &out) {
+/* small_adapitve */
+void s_adp_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
 	out.resize(sets.begin()->size());
 
@@ -3331,8 +3618,9 @@ void small_adaptive_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(count);
 }
 
+/* sequential */
 template<intersectionfindfunction FINDFUNCTION>
-void sequential_exact(const mySet &sets, std::vector<uint32_t> &out) {
+void sql_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(sets.begin()->size());
 	auto value = out.begin();
 	*value = sets.begin()->at(0);
@@ -3382,7 +3670,7 @@ void sequential_exact(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 template<flaggedintersectionfindfunction FINDFUNCTION>
-void sequential_rough(const mySet &sets, std::vector<uint32_t> &out) {
+void sql_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(sets.begin()->size());
 	auto value = out.begin();
 	*value = sets.begin()->at(0);
@@ -3432,8 +3720,9 @@ void sequential_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	out.resize(count);
 }
 
+/* small_sequential */
 template<intersectionfindfunction FINDFUNCTION>
-void small_sequential_exact(const mySet &sets, std::vector<uint32_t> &out) {
+void s_sql_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
 	out.resize(sets.begin()->size());
 
@@ -3480,7 +3769,7 @@ void small_sequential_exact(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 template<flaggedintersectionfindfunction FINDFUNCTION>
-void small_sequential_rough(const mySet &sets, std::vector<uint32_t> &out) {
+void s_sql_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	std::vector<std::pair<mySet::iterator, size_t /*current index*/>> vsets;
 	out.resize(sets.begin()->size());
 
@@ -3496,7 +3785,7 @@ void small_sequential_rough(const mySet &sets, std::vector<uint32_t> &out) {
 
 	auto value = out.begin();
 	*value = sets.begin()->at(0);
-	size_t count = 0, elimset = 0, currentset = 1;
+	size_t count = 0, currentset = 1;
 	int foundp;
 
 	while (vsets[0].second != vsets[0].first->size()) {
@@ -3711,7 +4000,7 @@ void BYintersect_sorted(const uint32_t *freq, const size_t &freq_end,
 }
 
 template<intersectionfindfunction FINDFUNCTION>
-void BaezaYates(const mySet &sets, std::vector<uint32_t> &out) {
+void BY(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
 	std::vector<uint32_t> intersection(std::move(*it++));
 

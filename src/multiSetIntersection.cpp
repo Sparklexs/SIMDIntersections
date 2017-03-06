@@ -30,23 +30,23 @@
 #include <boost/preprocessor.hpp>
 
 void small_vs_small_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::small_vs_small<BSintersection>(sets, out);
+	msis::svs<BSintersection>(sets, out);
 }
 
 void set_vs_set_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::set_vs_set_exact<msis::scalarBinarySearch>(sets, out);
+	msis::SvS_exact<msis::scalarBinarySearch>(sets, out);
 }
 
 void swapping_set_vs_set_scalar(const mySet& sets, vector<uint32_t>& out) {
-	msis::swapping_set_vs_set_exact<msis::scalarBinarySearch>(sets, out);
+	msis::s_SvS_exact<msis::scalarBinarySearch>(sets, out);
 }
 
 void sequential_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::sequential_exact<msis::scalargallop>(sets, out);
+	msis::sql_exact<msis::scalargallop>(sets, out);
 }
 
 void small_sequential_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::small_sequential_exact<msis::scalargallop>(sets, out);
+	msis::s_sql_exact<msis::scalargallop>(sets, out);
 }
 
 void max__scalar(const mySet &sets, std::vector<uint32_t> &out) {
@@ -54,15 +54,15 @@ void max__scalar(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 void BaezaYates_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::BaezaYates<msis::scalarBinarySearch>(sets, out);
+	msis::BY<msis::scalarBinarySearch>(sets, out);
 }
 
 typedef void (*intersectionFUNC)(const mySet &sets, std::vector<uint32_t> &out);
 /* SIMD methods are template functions that can't be applied to typedef */
 intersectionFUNC scalarFUNC[] = { small_vs_small_scalar, set_vs_set_scalar,
-		swapping_set_vs_set_scalar, msis::adaptive_scalar,
-		msis::small_adaptive_scalar, sequential_scalar, small_sequential_scalar,
-		max__scalar, BaezaYates_scalar };
+		swapping_set_vs_set_scalar, msis::adp_scalar, msis::s_adp_scalar,
+		sequential_scalar, small_sequential_scalar, max__scalar,
+		BaezaYates_scalar };
 
 constexpr int NUMSCALARFUNC = sizeof(scalarFUNC) / sizeof(scalarFUNC[0]);
 
@@ -71,11 +71,11 @@ const std::string NAMESCALARFUNC[] = { "small_vs_small", "set_vs_set",
 		"small_sequential", "max", "BaezaYates" };
 
 /////////////////////////////////////////
-#define METHOD (msis::set_vs_set)(msis::swapping_set_vs_set)(msis::sequential)(msis::small_sequential)(msis::max)
+#define METHOD (msis::SvS)(msis::s_SvS)(msis::sql)(msis::s_sql)(msis::max)
 #define HEAD (_exact<msis::simd)(_rough<msis::simd)
 #define SEARCH (linear_v)(gallop_v)
 #define SIZE (4)(8)(16)(32)(64)(128)(256)(512)
-#define END (_exact>)(_rough>)
+#define END (_exact>)(_rough>)(_rough_plow>)
 //////////////////////////////////////////
 
 int main() {
@@ -91,7 +91,7 @@ int main() {
 
 	WallClockTimer timer;
 	size_t time = 0;
-	const int REPETITION = 3;
+	const int REPETITION = 50;
 
 #ifdef __INTEL_COMPILER
 // Intel's support for C++ sucks
@@ -158,7 +158,39 @@ int main() {
 				for (; it != MultiSets.end(); it++)
 					final_intersection = intersect(final_intersection, *it);
 
-				std::string name;
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					msis::SvS_exact<msis::scalarBinarySearch>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "SvS_B",
+						(double) time / REPETITION);
+
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					msis::SvS_exact<msis::scalargallop>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "SvS_G",
+						(double) time / REPETITION);
+
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					msis::s_SvS_exact<msis::scalarBinarySearch>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "s_SvS_B",
+						(double) time / REPETITION);
+
+				timer.reset();
+				for (int howmany = 0; howmany < REPETITION; ++howmany) {
+					msis::s_SvS_exact<msis::scalargallop>(MultiSets, out);
+				}
+				time = timer.split();
+				printf("%s: \e[31m%6.0f\e[0m  ", "s_SvS_G",
+						(double) time / REPETITION);
+
+//				std::string name;
 //#define LOOP_BODY(R,PRODUCT)\
 //		timer.reset();											\
 //		for (int howmany = 0; howmany < REPETITION; ++howmany) {\
@@ -174,40 +206,41 @@ int main() {
 //		}\
 //		time = timer.split();\
 //		name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
+//		name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
 //		name.append("(").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT))).append(")");\
 //		name=name.substr(6);\
 //		printf("%s: \e[31m%6.0f\e[0m  ", name.c_str(),\
 //					(double) time / REPETITION);\
-////		if (out != final_intersection) {\
-////			std::cerr << "bad result!  " << std::endl;\
-////			return 1;\
-////		} else\
-////			printf("good!  ");\
+//		if (out != final_intersection) {\
+//			std::cerr << "bad result!  " << std::endl;\
+//			return 1;\
+//		} else\
+//			printf("good!  ");\
 //
-//				BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-//						((BOOST_PP_SEQ_ELEM(3,METHOD))/*METHOD*/)/*s_vs_s,s_s_vs_s,seq,max*/
-//						((BOOST_PP_SEQ_ELEM(0,HEAD)))/*0:exact 1:rough*/
-//						((BOOST_PP_SEQ_ELEM(0,SEARCH)))/*0:linear 1:gallop*/
-//						(SIZE) /*4,8,16,32,64,128,256,512*/
-//						((BOOST_PP_SEQ_ELEM(0,END))));/*0:exact 1:rough*/
+//	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+//	((BOOST_PP_SEQ_ELEM(3,METHOD))/*METHOD*/)/*s_vs_s,s_s_vs_s,seq,max*/
+//	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+//	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+//	(/*SIZE*/BOOST_PP_SEQ_REST_N(5,SIZE)) /*4,8,16,32,64,128,256,512*/
+//	(/*(BOOST_PP_SEQ_ELEM(2,END))*/BOOST_PP_SEQ_POP_FRONT(END)));/*0:exact 1:rough 2:rough_plow*/
 //#undef LOOP_BODY
 
 				// start scalar intersection
-				for (int i = 0; i < NUMSCALARFUNC; i++) {
-					timer.reset();
-					for (int howmany = 0; howmany < REPETITION; ++howmany) {
-						scalarFUNC[i](MultiSets, out);
-					}
-					time = timer.split();
-					printf("%s: \e[31m%6.0f\e[0m  ", NAMESCALARFUNC[i].c_str(),
-							(double) time / REPETITION);
-
-					if (out != final_intersection) {
-						std::cerr << "bad result!  " << std::endl;
-						return 1;
-					} else
-						printf("good!  ");
-				} // for intersection
+//				for (int i = 0; i < NUMSCALARFUNC; i++) {
+//					timer.reset();
+//					for (int howmany = 0; howmany < REPETITION; ++howmany) {
+//						scalarFUNC[i](MultiSets, out);
+//					}
+//					time = timer.split();
+//					printf("%s: \e[31m%6.0f\e[0m  ", NAMESCALARFUNC[i].c_str(),
+//							(double) time / REPETITION);
+//
+////					if (out != final_intersection) {
+////						std::cerr << "bad result!  " << std::endl;
+////						return 1;
+////					} else
+////						printf("good!  ");
+//				} // for intersection
 				printf("\n");
 				fflush(stdout);
 			} // for num
