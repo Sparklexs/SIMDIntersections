@@ -409,9 +409,8 @@ pair<vector<uint32_t>, vector<uint32_t> > getPair(generator gen,
  */
 
 template<typename generator>
-mySet genMultipleSets(generator gen, uint32_t minlength,
-		uint32_t howmany, uint32_t Max, float sizeratio,
-		float intersectionratio) {
+mySet genMultipleSets(generator gen, uint32_t minlength, uint32_t howmany,
+		uint32_t Max, float sizeratio, float intersectionratio) {
 	if (sizeratio < 1)
 		throw runtime_error("sizeratio should be larger or equal to 1");
 	if (intersectionratio < 0)
