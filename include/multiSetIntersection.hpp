@@ -298,7 +298,7 @@ long simdlinear_v8_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -452,7 +452,7 @@ long simdlinear_v16_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -622,7 +622,7 @@ long simdlinear_v32_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -798,7 +798,7 @@ long simdlinear_v64_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -988,7 +988,7 @@ long simdlinear_v128_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -1207,7 +1207,7 @@ long simdlinear_v256_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -1499,7 +1499,7 @@ long simdlinear_v512_rough_plow(int*foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -1902,7 +1902,7 @@ long simdgallop_v8_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -2177,7 +2177,7 @@ long simdgallop_v16_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -2468,7 +2468,7 @@ long simdgallop_v32_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -2765,7 +2765,7 @@ long simdgallop_v64_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -3079,7 +3079,7 @@ long simdgallop_v128_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -3550,7 +3550,7 @@ long simdgallop_v256_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
@@ -3968,7 +3968,7 @@ long simdgallop_v512_rough_plow(int *foundp, UINT4 goal, const UINT4 *target,
 	}
 	if (_mm_testz_si128(F0, F0)) {
 		*foundp = 0;
-		i--;
+		i = 0;
 	} else
 		*foundp = 1;
 	return (target + i * SIMDWIDTH - init_target);
