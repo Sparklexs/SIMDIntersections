@@ -24,10 +24,10 @@
  *      Author: SparkleXS
  */
 
-#include "multiSetIntersection.hpp"
 #include "timer.h"
 #include "synthetic.h"
 #include <boost/preprocessor.hpp>
+#include <msis_method.hpp>
 
 class Set_collection {
 	const static uint32_t HEADERSIZE = sizeof(float) + 3 * sizeof(uint32_t);
@@ -216,7 +216,7 @@ void max_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 void BaezaYates_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::BY<msis::scalarBinarySearch>(sets, out);
+	msis::BY_exact<msis::scalarBinarySearch>(sets, out);
 }
 
 typedef void (*intersectionFUNC)(const mySet &sets, std::vector<uint32_t> &out);
@@ -232,11 +232,11 @@ const std::string NAMESCALARFUNC[] = { "zip", "v1", "v3", "gallop", "inoue",
 constexpr uint32_t NUMSCALARFUNC = sizeof(scalarFUNC) / sizeof(scalarFUNC[0]);
 
 /////////////////////////////////////////
-#define METHOD (msis::SvS)(msis::s_SvS)(msis::sql)(msis::s_sql)(msis::max)
+#define METHOD (msis::SvS)(msis::s_SvS)(msis::sql)(msis::s_sql)(msis::max)(msis::BY)
 #define HEAD (_exact<msis::simd)(_rough<msis::simd)
-#define SEARCH (linear_v)(gallop_v)
-#define SIZE (4)(8)(16)(32)(64)(128)(256)(512)
-#define END (_exact>)(_rough>)(_rough_plow>)
+#define SEARCH (linear)(gallop)
+#define SIZE (_4)(_8)(_16)(_32)(_64)(_128)(_256)(_512)
+#define TAIL (_exact>)(_rough>)(_rough_plow>)
 //////////////////////////////////////////
 
 std::map<std::string, size_t> init_time_array() {
@@ -251,119 +251,147 @@ std::map<std::string, size_t> init_time_array() {
 
 	std::string name;
 #define LOOP_BODY(R,PRODUCT)\
-	    name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
-	    name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(2,PRODUCT)));\
-	    name.resize(name.size()-2);\
-	    name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
-	    name.resize(name.size()-1);\
-	    name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT)));\
-	    name=name.substr(6);\
+		name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
+		name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(2,PRODUCT)));\
+		name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT)));\
+		name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
+		name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(5,PRODUCT)));\
+		name.resize(name.size()-1);\
+		name=name.substr(6);\
 	    times[name]=0;\
 
-// TEST ALL THE METHOD
-	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-			(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
-			((BOOST_PP_SEQ_ELEM(0,HEAD)))/*0:exact 1:rough*/
-			(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-			(SIZE/*BOOST_PP_SEQ_REST_N(5,SIZE)*/) /*4,8,16,32,64,128,256,512*/
-			((BOOST_PP_SEQ_ELEM(0,END))));/*0:exact 1:rough 2:rough_plow*/
-
-	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-			(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
-			((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
-			(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-			(SIZE/*BOOST_PP_SEQ_REST_N(5,SIZE)*/) /*4,8,16,32,64,128,256,512*/
-			((BOOST_PP_SEQ_ELEM(1,END))));/*0:exact 1:rough 2:rough_plow*/
-
-	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-			(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
-			((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
-			(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-			(BOOST_PP_SEQ_REST_N(1,SIZE)) /*4,8,16,32,64,128,256,512*/
-			((BOOST_PP_SEQ_ELEM(2,END))));/*0:exact 1:rough 2:rough_plow*/
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(0,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(1,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(1,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(2,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(2,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(3,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(3,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(4,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(4,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(5,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(5,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(6,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(6,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(7,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
+	BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY, ((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+	((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+	((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+	((BOOST_PP_SEQ_ELEM(7,SIZE))) /*4,8,16,32,64,128,256,512*/
+	(BOOST_PP_SEQ_FIRST_N(8,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+	);
 #undef LOOP_BODY
 	return times;
 }
 
-void intersect_for_all(bool loadfromfile) {
-	using namespace msis;
-
-	vector<uint32_t> out;
-
-	uint32_t logMinLength = 12; // log of minimal array size
-	uint32_t MaxBit = 31; // largest bit-length of element
-	const uint32_t minlength = 1U << logMinLength;
-	size_t REPETITION = 100;
-	size_t CASES = 20;
-
-	WallClockTimer timer;
-#ifdef __INTEL_COMPILER
-// Intel's support for C++ sucks
-	vector<float> intersectionsratios;
-	intersectionsratios.push_back(1.00);
-	intersectionsratios.push_back(0.80);
-	intersectionsratios.push_back(0.60);
-	intersectionsratios.push_back(0.20);
-	intersectionsratios.push_back(0.10);
-	intersectionsratios.push_back(0.05);
-	intersectionsratios.push_back(0.01);
-	vector < uint32_t > sizeratios;
-	sizeratios.push_back(1);
-	sizeratios.push_back(2);
-	sizeratios.push_back(3);
-	sizeratios.push_back(5);
-	sizeratios.push_back(10);
-	sizeratios.push_back(20);
-	sizeratios.push_back(40);
-	sizeratios.push_back(80);
-	sizeratios.push_back(200);
-	sizeratios.push_back(500);
-	sizeratios.push_back(1000);
-#else
-// proper C++
-//      vector<float> intersectionsratios = { 0.01, 0.05, 0.10, 0.20, 0.60, 0.80,
-//                      1.00 };
-//      vector<uint32_t> sizeratios = { 1, 10, 20, 50, 100, 500, 1000, 5000, 10000 };
-	vector<float> intersectionsratios = { 0.10, 0.50, 1.00 };
-	vector<uint32_t> sizeratios = { 1, 10, 100, 1000 /*, 10000*/};
-#endif
-
-	FILE *pfile = fopen("output_disk.csv", "w+");
-	fprintf(pfile, "sr,ir,num,name,time\n");
-	std::map<std::string, size_t> times = init_time_array();
-
-	for (float ir : intersectionsratios) {
-		printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
-		for (uint32_t sr : sizeratios) {
-			printf("  size ratio: \e[32m%4d\e[0m\n", sr);
-			for (uint32_t num = 2; num < 11; num++) {
-				time_t t = time(nullptr);
-				tm* _tm = localtime(&t);
-				printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  ", _tm->tm_hour,
-						_tm->tm_min, _tm->tm_sec, num);
-				if (num == 0 and sr > 100)
-					REPETITION = 3;
-				else
-					REPETITION = 100;
-				REPETITION = 1;
-
-				for (uint32_t k = 0; k < CASES; k++) {
-					mySet multiset;
-					if (loadfromfile)
-						multiset = Set_collection::load_set(ir, sr, num, k);
-					else {
-						ClusteredDataGenerator cdg;
-						multiset = genMultipleSets(cdg, minlength, num,
-								1U << MaxBit, static_cast<float>(sr), ir);
-					}
-					// verification
-					auto it = multiset.begin();
-					vector<uint32_t> final_intersection = intersect(*it++,
-							*it++);
-					for (; it != multiset.end(); it++)
-						final_intersection = intersect(final_intersection, *it);
-
-					// start scalar intersection
+//void intersect_for_all(bool loadfromfile) {
+//	using namespace msis;
+//
+//	vector<uint32_t> out;
+//
+//	uint32_t logMinLength = 12; // log of minimal array size
+//	uint32_t MaxBit = 31; // largest bit-length of element
+//	const uint32_t minlength = 1U << logMinLength;
+//	size_t REPETITION = 100;
+//	size_t CASES = 20;
+//
+//	WallClockTimer timer;
+//#ifdef __INTEL_COMPILER
+//// Intel's support for C++ sucks
+//	vector<float> intersectionsratios;
+//	intersectionsratios.push_back(1.00);
+//	intersectionsratios.push_back(0.80);
+//	intersectionsratios.push_back(0.60);
+//	intersectionsratios.push_back(0.20);
+//	intersectionsratios.push_back(0.10);
+//	intersectionsratios.push_back(0.05);
+//	intersectionsratios.push_back(0.01);
+//	vector < uint32_t > sizeratios;
+//	sizeratios.push_back(1);
+//	sizeratios.push_back(2);
+//	sizeratios.push_back(3);
+//	sizeratios.push_back(5);
+//	sizeratios.push_back(10);
+//	sizeratios.push_back(20);
+//	sizeratios.push_back(40);
+//	sizeratios.push_back(80);
+//	sizeratios.push_back(200);
+//	sizeratios.push_back(500);
+//	sizeratios.push_back(1000);
+//#else
+//// proper C++
+////      vector<float> intersectionsratios = { 0.01, 0.05, 0.10, 0.20, 0.60, 0.80,
+////                      1.00 };
+////      vector<uint32_t> sizeratios = { 1, 10, 20, 50, 100, 500, 1000, 5000, 10000 };
+//	vector<float> intersectionsratios = { 0.10, 0.50, 1.00 };
+//	vector<uint32_t> sizeratios = { 1, 10, 100, 1000, 10000 };
+//#endif
+//
+//	FILE *pfile = fopen("output_disk.csv", "w+");
+//	fprintf(pfile, "sr,ir,num,name,time\n");
+//	std::map<std::string, size_t> times = init_time_array();
+//
+//	for (float ir : intersectionsratios) {
+//		printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
+//		for (uint32_t sr : sizeratios) {
+//			printf("  size ratio: \e[32m%4d\e[0m\n", sr);
+//			if (sr > 100)
+//				REPETITION = 3;
+//			else
+//				REPETITION = 100;
+//			for (uint32_t num = 2; num < 11; num++) {
+//				times = init_time_array();
+//
+//				time_t t = time(nullptr);
+//				tm* _tm = localtime(&t);
+//				printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  ", _tm->tm_hour,
+//						_tm->tm_min, _tm->tm_sec, num);
+//
+//				for (uint32_t k = 0; k < CASES; k++) {
+//					mySet multiset;
+//					if (loadfromfile)
+//						multiset = Set_collection::load_set(ir, sr, num, k);
+//					else {
+//						ClusteredDataGenerator cdg;
+//						multiset = genMultipleSets(cdg, minlength, num,
+//								1U << MaxBit, static_cast<float>(sr), ir);
+//					}
+//					// verification
+////					auto it = multiset.begin();
+////					vector<uint32_t> final_intersection = intersect(*it++,
+////							*it++);
+////					for (; it != multiset.end(); it++)
+////						final_intersection = intersect(final_intersection, *it);
+//
+//					// start scalar intersection
 //					for (uint32_t j = 0; j < NUMSCALARFUNC; j++) {
 //						timer.reset();
 //						for (uint32_t howmany = 0; howmany < REPETITION;
@@ -380,44 +408,32 @@ void intersect_for_all(bool loadfromfile) {
 //						times[NAMESCALARFUNC[j]] += timer.split();
 //					}
 //					Schlegel(multiset, timer, times);
-
-					std::string name;
-#define LOOP_BODY(R,PRODUCT)\
-	        timer.reset();\
-	        for (uint32_t howmany = 0; howmany < REPETITION;\
-	        	 ++howmany) {\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_SEQ_ELEM(0,PRODUCT),\
-	               BOOST_PP_SEQ_ELEM(1,PRODUCT)),\
-	               BOOST_PP_SEQ_ELEM(2,PRODUCT)),\
-	               BOOST_PP_SEQ_ELEM(3,PRODUCT)),\
-	               BOOST_PP_SEQ_ELEM(4,PRODUCT))(multiset,out);\
-	        }\
-			if (out != final_intersection) {\
-					std::cerr << "bad result!  " << std::endl;\
-					return;\
-			} else\
-					printf("good!  ");\
-	        name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
-	        name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(2,PRODUCT)));\
-	        name.resize(name.size()-2);\
-	        name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
-	        name.resize(name.size()-1);\
-	        name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT)));\
-	        name=name.substr(6);\
-	        times[name] += timer.split();\
-
-//					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-//							((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
-//							((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
-//							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-//							(BOOST_PP_SEQ_REST_N(1,SIZE)) /*4,8,16,32,64,128,256,512*/
-//							(BOOST_PP_SEQ_POP_FRONT(END)));/*0:exact 1:rough 2:rough_plow*/
 //
-					// TEST ALL THE METHOD
+//					std::string name;
+//#define LOOP_BODY(R,PRODUCT)\
+//	        timer.reset();\
+//	        for (uint32_t howmany = 0; howmany < REPETITION;\
+//	        	 ++howmany) {\
+//	               BOOST_PP_CAT(\
+//	               BOOST_PP_CAT(\
+//	               BOOST_PP_CAT(\
+//	               BOOST_PP_CAT(\
+//	               BOOST_PP_SEQ_ELEM(0,PRODUCT),\
+//	               BOOST_PP_SEQ_ELEM(1,PRODUCT)),\
+//	               BOOST_PP_SEQ_ELEM(2,PRODUCT)),\
+//	               BOOST_PP_SEQ_ELEM(3,PRODUCT)),\
+//	               BOOST_PP_SEQ_ELEM(4,PRODUCT))(multiset,out);\
+//	        }\
+//	        name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
+//	        name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(2,PRODUCT)));\
+//	        name.resize(name.size()-2);\
+//	        name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
+//	        name.resize(name.size()-1);\
+//	        name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT)));\
+//	        name=name.substr(6);\
+//	        times[name] += timer.split();\
+//
+//					// TEST ALL THE METHOD
 //					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
 //							(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
 //							((BOOST_PP_SEQ_ELEM(0,HEAD)))/*0:exact 1:rough*/
@@ -431,198 +447,214 @@ void intersect_for_all(bool loadfromfile) {
 //							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
 //							(SIZE/*BOOST_PP_SEQ_REST_N(5,SIZE)*/) /*4,8,16,32,64,128,256,512*/
 //							((BOOST_PP_SEQ_ELEM(1,END))));/*0:exact 1:rough 2:rough_plow*/
-
-					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-							(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
-							((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
-							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-							(BOOST_PP_SEQ_REST_N(1,SIZE)) /*4,8,16,32,64,128,256,512*/
-							((BOOST_PP_SEQ_ELEM(2,END))));/*0:exact 1:rough 2:rough_plow*/
-#undef LOOP_BODY
-				}
-				for (auto time : times) {
-					if (time.second != 0) {
-//						printf("%s: \e[31m%6.0f\e[0m  ", time.first.c_str(),
-//								(double) time.second / REPETITION / CASES);
-						fprintf(pfile, "%d,%.0f,%d,%s,%.0f\n", sr, ir * 100,
-								num, time.first.c_str(),
-								(double) time.second / REPETITION / CASES);
-					}
-				}
-				printf("\n");
-				fflush(pfile);
-				fflush(stdout);
-			} // for num
-		} // for size-ratio
-	} // for intersection-ratio
-	fclose(pfile);
-}
-
-void intersect_for_10k(bool loadfromfile) {
-	using namespace msis;
-
-	vector<uint32_t> out;
-
-	uint32_t logMinLength = 12; // log of minimal array size
-	uint32_t MaxBit = 31; // largest bit-length of element
-	const uint32_t minlength = 1U << logMinLength;
-	size_t REPETITION = 100;
-	size_t CASES = 20;
-
-	WallClockTimer timer;
-#ifdef __INTEL_COMPILER
-// Intel's support for C++ sucks
-	vector<float> intersectionsratios;
-	intersectionsratios.push_back(1.00);
-	intersectionsratios.push_back(0.80);
-	intersectionsratios.push_back(0.60);
-	intersectionsratios.push_back(0.20);
-	intersectionsratios.push_back(0.10);
-	intersectionsratios.push_back(0.05);
-	intersectionsratios.push_back(0.01);
-	vector < uint32_t > sizeratios;
-	sizeratios.push_back(1);
-	sizeratios.push_back(2);
-	sizeratios.push_back(3);
-	sizeratios.push_back(5);
-	sizeratios.push_back(10);
-	sizeratios.push_back(20);
-	sizeratios.push_back(40);
-	sizeratios.push_back(80);
-	sizeratios.push_back(200);
-	sizeratios.push_back(500);
-	sizeratios.push_back(1000);
-#else
-// proper C++
-//      vector<float> intersectionsratios = { 0.01, 0.05, 0.10, 0.20, 0.60, 0.80,
-//                      1.00 };
-//      vector<uint32_t> sizeratios = { 1, 10, 20, 50, 100, 500, 1000, 5000, 10000 };
-	vector<float> intersectionsratios = { /*0.10,0.50,*/ 1.00 };
-	vector<uint32_t> sizeratios = { 10000 };
-#endif
-
-	FILE *pfile = fopen("output_disk_10k.csv", "w+");
-	fprintf(pfile, "sr,ir,num,name,time\n");
-	std::map<std::string, size_t> times = init_time_array();
-
-	for (float ir : intersectionsratios) {
-		printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
-		for (uint32_t sr : sizeratios) {
-			printf("  size ratio: \e[32m%4d\e[0m\n", sr);
-			for (uint32_t num = 2; num < 11; num++) {
-				time_t t = time(nullptr);
-				tm* _tm = localtime(&t);
-				printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  ", _tm->tm_hour,
-						_tm->tm_min, _tm->tm_sec, num);
-				if (num == 0 and sr > 100)
-					REPETITION = 3;
-				else
-					REPETITION = 100;
-
-				for (uint32_t k = 0; k < CASES; k++) {
-					mySet multiset;
-					if (loadfromfile)
-						multiset = Set_collection::load_set(ir, sr, num, k);
-					else {
-						ClusteredDataGenerator cdg;
-						multiset = genMultipleSets(cdg, minlength, num,
-								1U << MaxBit, static_cast<float>(sr), ir);
-					}
-					// verification
-//					auto it = multiset.begin();
-//					vector<uint32_t> final_intersection = intersect(*it++,
-//							*it++);
-//					for (; it != multiset.end(); it++)
-//						final_intersection = intersect(final_intersection, *it);
-
-					// start scalar intersection
-					for (uint32_t j = 0; j < NUMSCALARFUNC; j++) {
-						timer.reset();
-						for (uint32_t howmany = 0; howmany < REPETITION;
-								++howmany) {
-							scalarFUNC[j](multiset, out);
-						}
-
-//						if (out != final_intersection) {
-//							std::cerr << "bad result!  " << std::endl;
-//							return;
-//						} else
-//							printf("good!  ");
-
-						times[NAMESCALARFUNC[j]] += timer.split();
-					}
-					Schlegel(multiset, timer, times);
-
-					std::string name;
-#define LOOP_BODY(R,PRODUCT)\
-	        timer.reset();\
-	        for (uint32_t howmany = 0; howmany < REPETITION;\
-	        	 ++howmany) {\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_CAT(\
-	               BOOST_PP_SEQ_ELEM(0,PRODUCT),\
-	               BOOST_PP_SEQ_ELEM(1,PRODUCT)),\
-	               BOOST_PP_SEQ_ELEM(2,PRODUCT)),\
-	               BOOST_PP_SEQ_ELEM(3,PRODUCT)),\
-	               BOOST_PP_SEQ_ELEM(4,PRODUCT))(multiset,out);\
-	        }\
-	        name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
-	        name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(2,PRODUCT)));\
-	        name.resize(name.size()-2);\
-	        name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
-	        name.resize(name.size()-1);\
-	        name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT)));\
-	        name=name.substr(6);\
-	        times[name] += timer.split();\
-
-//					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-//							((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
-//							((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
-//							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-//							(BOOST_PP_SEQ_REST_N(1,SIZE)) /*4,8,16,32,64,128,256,512*/
-//							(BOOST_PP_SEQ_POP_FRONT(END)));/*0:exact 1:rough 2:rough_plow*/
 //
-					// TEST ALL THE METHOD
-					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-							(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
-							((BOOST_PP_SEQ_ELEM(0,HEAD)))/*0:exact 1:rough*/
-							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-							(SIZE/*BOOST_PP_SEQ_REST_N(5,SIZE)*/) /*4,8,16,32,64,128,256,512*/
-							((BOOST_PP_SEQ_ELEM(0,END))));/*0:exact 1:rough 2:rough_plow*/
-
-					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-							(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
-							((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
-							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
-							(SIZE/*BOOST_PP_SEQ_REST_N(5,SIZE)*/) /*4,8,16,32,64,128,256,512*/
-							((BOOST_PP_SEQ_ELEM(1,END))));/*0:exact 1:rough 2:rough_plow*/
-
 //					BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
 //							(/*(BOOST_PP_SEQ_ELEM(3,METHOD))*/METHOD)/*SvS,s_SvS,sql,s_sql,max*/
 //							((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 //							(/*(BOOST_PP_SEQ_ELEM(1,SEARCH))*/SEARCH)/*0:linear 1:gallop*/
 //							(BOOST_PP_SEQ_REST_N(1,SIZE)) /*4,8,16,32,64,128,256,512*/
 //							((BOOST_PP_SEQ_ELEM(2,END))));/*0:exact 1:rough 2:rough_plow*/
-#undef LOOP_BODY
-				}
-				for (auto time : times) {
-					if (time.second != 0) {
-//						printf("%s: \e[31m%6.0f\e[0m  ", time.first.c_str(),
+//#undef LOOP_BODY
+//				}
+//				for (auto time : times) {
+//					if (time.second != 0) {
+////						printf("%s: \e[31m%6.0f\e[0m  ", time.first.c_str(),
+////								(double) time.second / REPETITION / CASES);
+//						fprintf(pfile, "%d,%.0f,%d,%s,%.0f\n", sr, ir * 100,
+//								num, time.first.c_str(),
 //								(double) time.second / REPETITION / CASES);
-						fprintf(pfile, "%d,%.0f,%d,%s,%.0f\n", sr, ir * 100,
-								num, time.first.c_str(),
-								(double) time.second / REPETITION / CASES);
-					}
-				}
-				printf("\n");
-				fflush(pfile);
-				fflush(stdout);
-			} // for num
-		} // for size-ratio
-	} // for intersection-ratio
-	fclose(pfile);
+//					}
+//				}
+//				printf("\n");
+//				fflush(pfile);
+//				fflush(stdout);
+//			} // for num
+//		} // for size-ratio
+//	} // for intersection-ratio
+//	fclose(pfile);
+//}
+
+void intersect_test(bool loadfromfile) {
+	using namespace msis;
+
+	vector<uint32_t> out;
+
+	uint32_t logMinLength = 12; // log of minimal array size
+	uint32_t MaxBit = 31; // largest bit-length of element
+	uint32_t minlength = 1U << logMinLength;
+	size_t REPETITION = 100;
+	size_t CASES = 20;
+
+	WallClockTimer timer;
+	vector<float> intersectionsratios = { 0.10, 0.20, 0.30, 0.40, 0.50, 0.60,
+			0.70, 0.80, 0.90, 1.00 };
+	vector<uint32_t> sizeratios = { 1, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
+			2048, 4096, 8192 };
+
+	std::map<std::string, size_t> times = init_time_array();
+	ofstream of("time.json", std::ios::binary);
+	for (uint32_t msb = 10; msb <= 14; ++msb) {
+		minlength = 1U << msb;
+		for (float ir : intersectionsratios) {
+			printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
+			for (uint32_t sr : sizeratios) {
+				printf("  size ratio: \e[32m%4d\e[0m\n", sr);
+				if (sr > 100)
+					REPETITION = 33;
+				else
+					REPETITION = 100;
+				times = init_time_array();
+				for (uint32_t num = 2; num < 3; num++) {
+					time_t t = time(nullptr);
+					tm* _tm = localtime(&t);
+					printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  ",
+							_tm->tm_hour, _tm->tm_min, _tm->tm_sec, num);
+
+					for (uint32_t k = 0; k < CASES; k++) {
+						mySet multiset;
+						if (loadfromfile)
+							multiset = Set_collection::load_set(ir, sr, num, k);
+						else {
+							ClusteredDataGenerator cdg;
+							multiset = genMultipleSets(cdg, minlength, num,
+									1U << MaxBit, static_cast<float>(sr), ir);
+						}
+
+						std::string name;
+#define LOOP_BODY(R,PRODUCT)\
+				timer.reset();\
+				for (uint32_t howmany = 0; howmany < REPETITION;\
+				++howmany) {\
+					BOOST_PP_CAT(\
+					BOOST_PP_CAT(\
+					BOOST_PP_CAT(\
+					BOOST_PP_CAT(\
+					BOOST_PP_CAT(\
+					BOOST_PP_SEQ_ELEM(0,PRODUCT),\
+					BOOST_PP_SEQ_ELEM(1,PRODUCT)),\
+					BOOST_PP_SEQ_ELEM(2,PRODUCT)),\
+					BOOST_PP_SEQ_ELEM(3,PRODUCT)),\
+					BOOST_PP_SEQ_ELEM(4,PRODUCT)),\
+					BOOST_PP_SEQ_ELEM(5,PRODUCT))(multiset,out);\
+				}\
+				name=(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(0,PRODUCT)));\
+				name.append("_").append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(2,PRODUCT)));\
+				name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(3,PRODUCT)));\
+				name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(4,PRODUCT)));\
+				name.append(BOOST_PP_STRINGIZE(BOOST_PP_SEQ_ELEM(5,PRODUCT)));\
+				name.resize(name.size()-1);\
+				name=name.substr(6);\
+				times[name] += timer.split();\
+
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(0,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(1,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(1,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(2,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(2,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(3,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(3,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(4,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(4,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(5,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(5,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(6,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(6,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(7,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
+								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
+								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
+								((BOOST_PP_SEQ_ELEM(7,SIZE))) /*4,8,16,32,64,128,256,512*/
+								(BOOST_PP_SEQ_FIRST_N(8,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
+								);
+#undef LOOP_BODY
+						for (auto time : times) {
+							if (time.second != 0) {
+								uint32_t type = 0;
+								if (time.first.find("max") == std::string::npos)
+									type = 1;
+								of << "{\"type\": " << type << ", ";
+								of << "\"time\": "
+										<< (double) time.second / REPETITION
+										<< ", ";
+								size_t start = time.first.find('_');
+								start = time.first.find('_', start + 1);
+								size_t end = time.first.find('_', start + 1);
+								uint32_t h;
+								istringstream istr(
+										time.first.substr(start + 1,
+												end - start - 1));
+								istr >> h;
+								of << "\"h_exp\": " << h << ", ";
+								h = std::log2(h);
+								of << "\"h\": " << h << ", ";
+
+								start = end;
+								end = time.first.find('_', start + 1);
+
+								uint32_t k;
+								istr.clear();
+								istr.str(
+										time.first.substr(start + 1,
+												end - start - 1));
+								istr >> k;
+								of << "\"k_exp\": " << k << ", ";
+								k = std::log2(k);
+								of << "\"k\": " << k << ", ";
+
+								of << "\"sr\": " << sr << ", ";
+								of << "\"ir\": " << ir << ", ";
+								of << "\"minlength\": " << minlength << "}"
+										<< std::endl;
+							} // if !=0
+//							printf("%s: \e[31m%6.3f\e[0m  \n",
+//									time.first.c_str(),
+//									(double) time.second / REPETITION / CASES);
+						} // for times
+					} // for CASES
+					printf("\n");
+					fflush(stdout);
+				} // for num
+			} // for size-ratio
+		} // for intersection-ratio
+	}
+	of.flush();
+	of.close();
 }
 
 int main(int argc, char **argv) {
@@ -639,6 +671,6 @@ int main(int argc, char **argv) {
 		std::cout << "load sets from file!" << std::endl;
 	else
 		std::cout << "generate sets in runtime!" << std::endl;
-	intersect_for_all(loadfromfile);
-	intersect_for_10k(loadfromfile);
+//	intersect_for_all(loadfromfile);
+	intersect_test(loadfromfile);
 }

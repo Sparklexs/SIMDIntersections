@@ -21,7 +21,7 @@ endif
 
 HEADERS= $(shell ls include/*h)
 
-all: unit testintersection realintersection getmatrix benchintersection multiSetIntersection
+all: unit testintersection realintersection getmatrix benchintersection multiSetIntersection codesgenerator
 	echo "please run unit tests by running the unit executable"
 
 intersection.o: src/intersection.cpp include/common.h
@@ -33,7 +33,7 @@ match.o: src/match.cpp include/match.h
 thomaswu.o: src/thomaswu.cpp $(HEADERS)
 	$(CXX) $(CXXFLAGS) -Iinclude -c src/thomaswu.cpp
 
-multiSetIntersection: $(HEADERS) src/multiSetIntersection.cpp include/multiSetIntersection.hpp match.o thomaswu.o intersection.o
+multiSetIntersection: $(HEADERS) src/multiSetIntersection.cpp include/msis_method.hpp include/msis_gallop_rough.hpp include/msis_gallop_exact.hpp include/msis_linear.hpp match.o thomaswu.o intersection.o
 	$(CXX) $(CXXFLAGS) -Iinclude -o multiSetIntersection src/multiSetIntersection.cpp match.o thomaswu.o intersection.o
 	
 testintersection: $(HEADERS) src/testintersection.cpp match.o thomaswu.o intersection.o
@@ -47,10 +47,13 @@ getmatrix: $(HEADERS) src/getmatrix.cpp match.o thomaswu.o intersection.o
 
 unit: $(HEADERS) src/unit.cpp match.o thomaswu.o intersection.o
 	$(CXX) $(CXXFLAGS) -Iinclude -o unit src/unit.cpp match.o thomaswu.o intersection.o
+
 benchintersection: $(HEADERS) src/benchintersection.cpp match.o thomaswu.o intersection.o
 	$(CXX) $(CXXFLAGS) -Iinclude -o benchintersection src/benchintersection.cpp match.o thomaswu.o intersection.o
 
+codesgenerator: src/codesgenerator.cpp
+	$(CXX) $(CXXFLAGS) -o codesgenerator src/codesgenerator.cpp
 
 clean: 
-	rm -f *.o unit testintersection realintersection getmatrix benchintersection multiSetIntersection
+	rm -f *.o unit testintersection realintersection getmatrix benchintersection multiSetIntersection codesgenerator
 
