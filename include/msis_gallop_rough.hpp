@@ -23,7 +23,7 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V4_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -32,7 +32,7 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V4_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V4_BLOCKSIZE - 1] < goal)) {
 		if (target + V4_BLOCKSIZE > stop_target) {
 			pos = V4_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V4_BLOCKSIZE,
@@ -46,10 +46,12 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V4_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V4_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V4_BLOCKSIZE;
 				if (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1]
 						< goal) {
@@ -65,6 +67,7 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V4_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -107,7 +110,7 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V8_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -116,7 +119,7 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V8_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V8_BLOCKSIZE - 1] < goal)) {
 		if (target + V8_BLOCKSIZE > stop_target) {
 			pos = V8_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V8_BLOCKSIZE,
@@ -130,10 +133,12 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V8_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V8_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V8_BLOCKSIZE;
 				if (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1]
 						< goal) {
@@ -149,6 +154,7 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V8_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -194,7 +200,7 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V8_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -203,7 +209,7 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V8_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V8_BLOCKSIZE - 1] < goal)) {
 		if (target + V8_BLOCKSIZE > stop_target) {
 			pos = V8_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V8_BLOCKSIZE,
@@ -217,10 +223,12 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V8_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V8_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V8_BLOCKSIZE;
 				if (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1]
 						< goal) {
@@ -236,6 +244,7 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V8_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -279,7 +288,7 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V16_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -288,7 +297,7 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V16_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V16_BLOCKSIZE - 1] < goal)) {
 		if (target + V16_BLOCKSIZE > stop_target) {
 			pos = V16_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V16_BLOCKSIZE,
@@ -302,10 +311,12 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V16_BLOCKSIZE;
 				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
 						< goal) {
@@ -321,6 +332,7 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V16_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -374,7 +386,7 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V16_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -383,7 +395,7 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V16_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V16_BLOCKSIZE - 1] < goal)) {
 		if (target + V16_BLOCKSIZE > stop_target) {
 			pos = V16_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V16_BLOCKSIZE,
@@ -397,10 +409,12 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V16_BLOCKSIZE;
 				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
 						< goal) {
@@ -416,6 +430,7 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V16_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -462,7 +477,7 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V16_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -471,7 +486,7 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V16_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V16_BLOCKSIZE - 1] < goal)) {
 		if (target + V16_BLOCKSIZE > stop_target) {
 			pos = V16_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V16_BLOCKSIZE,
@@ -485,10 +500,12 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V16_BLOCKSIZE;
 				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
 						< goal) {
@@ -504,6 +521,7 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V16_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -555,7 +573,7 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -564,7 +582,7 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V32_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
 			pos = V32_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V32_BLOCKSIZE,
@@ -578,10 +596,12 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
@@ -597,6 +617,7 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -666,7 +687,7 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -675,7 +696,7 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V32_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
 			pos = V32_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V32_BLOCKSIZE,
@@ -689,10 +710,12 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
@@ -708,6 +731,7 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -762,7 +786,7 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -771,7 +795,7 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V32_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
 			pos = V32_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V32_BLOCKSIZE,
@@ -785,10 +809,12 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
@@ -804,6 +830,7 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -858,7 +885,7 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -867,7 +894,7 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V32_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
 			pos = V32_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V32_BLOCKSIZE,
@@ -881,10 +908,12 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
@@ -900,6 +929,7 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -971,7 +1001,7 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -980,7 +1010,7 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V64_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
 			pos = V64_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
@@ -994,10 +1024,12 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
@@ -1013,6 +1045,7 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1114,7 +1147,7 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1123,7 +1156,7 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V64_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
 			pos = V64_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
@@ -1137,10 +1170,12 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
@@ -1156,6 +1191,7 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1226,7 +1262,7 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1235,7 +1271,7 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V64_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
 			pos = V64_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
@@ -1249,10 +1285,12 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
@@ -1268,6 +1306,7 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1330,7 +1369,7 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1339,7 +1378,7 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V64_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
 			pos = V64_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
@@ -1353,10 +1392,12 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
@@ -1372,6 +1413,7 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1446,7 +1488,7 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1455,7 +1497,7 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V64_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
 			pos = V64_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V64_BLOCKSIZE,
@@ -1469,10 +1511,12 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
@@ -1488,6 +1532,7 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1607,7 +1652,7 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1616,7 +1661,7 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V128_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
 			pos = V128_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
@@ -1630,10 +1675,12 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
@@ -1649,6 +1696,7 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1815,7 +1863,7 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1824,7 +1872,7 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V128_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
 			pos = V128_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
@@ -1838,10 +1886,12 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
@@ -1857,6 +1907,7 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -1960,7 +2011,7 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -1969,7 +2020,7 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V128_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
 			pos = V128_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
@@ -1983,10 +2034,12 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
@@ -2002,6 +2055,7 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -2081,7 +2135,7 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -2090,7 +2144,7 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V128_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
 			pos = V128_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
@@ -2104,10 +2158,12 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
@@ -2123,6 +2179,7 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -2206,7 +2263,7 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -2215,7 +2272,7 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V128_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
 			pos = V128_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
@@ -2229,10 +2286,12 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
@@ -2248,6 +2307,7 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -2371,7 +2431,7 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -2380,7 +2440,7 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V128_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
 			pos = V128_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V128_BLOCKSIZE,
@@ -2394,10 +2454,12 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
@@ -2413,6 +2475,7 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -2645,7 +2708,7 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -2654,7 +2717,7 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -2668,10 +2731,12 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -2687,6 +2752,7 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -2981,7 +3047,7 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -2990,7 +3056,7 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -3004,10 +3070,12 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -3023,6 +3091,7 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -3190,7 +3259,7 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -3199,7 +3268,7 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -3213,10 +3282,12 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -3232,6 +3303,7 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -3343,7 +3415,7 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -3352,7 +3424,7 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -3366,10 +3438,12 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -3385,6 +3459,7 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -3484,7 +3559,7 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -3493,7 +3568,7 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -3507,10 +3582,12 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -3526,6 +3603,7 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -3657,7 +3735,7 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -3666,7 +3744,7 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -3680,10 +3758,12 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -3699,6 +3779,7 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -3934,7 +4015,7 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -3943,7 +4024,7 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V256_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
 			pos = V256_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V256_BLOCKSIZE,
@@ -3957,10 +4038,12 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
@@ -3976,6 +4059,7 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -4401,7 +4485,7 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -4410,7 +4494,7 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -4424,10 +4508,12 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -4443,6 +4529,7 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -4993,7 +5080,7 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -5002,7 +5089,7 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -5016,10 +5103,12 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -5035,6 +5124,7 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -5330,7 +5420,7 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -5339,7 +5429,7 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -5353,10 +5443,12 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -5372,6 +5464,7 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -5547,7 +5640,7 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -5556,7 +5649,7 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -5570,10 +5663,12 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -5589,6 +5684,7 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -5720,7 +5816,7 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -5729,7 +5825,7 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -5743,10 +5839,12 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -5762,6 +5860,7 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -5909,7 +6008,7 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -5918,7 +6017,7 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -5932,10 +6031,12 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -5951,6 +6052,7 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -6194,7 +6296,7 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -6203,7 +6305,7 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -6217,10 +6319,12 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -6236,6 +6340,7 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -6664,7 +6769,7 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
 
-	if (target >= stop_target) {
+	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
 				&& target[pos] == goal)
 			*foundp = 1;
@@ -6673,7 +6778,7 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		return pos;
 	}
 
-	if (target[V512_BLOCKSIZE - 1] < goal) {
+	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
 			pos = V512_BLOCKSIZE
 					+ Intersection_find_scalar(goal, target + V512_BLOCKSIZE,
@@ -6687,10 +6792,12 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
+				//doubled
 				low_offset = high_offset;
 				high_offset <<= 1;
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
+				//more than one block left
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
@@ -6706,6 +6813,7 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				} else
 					break;
 			} else {
+				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
 
 				pos = Intersection_find_scalar(goal, target,
@@ -7504,5 +7612,24 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 1;
 	return (target - init_target);
 }
+
+typedef long (*searchFUNC)(int *foundp, UINT4 goal, const UINT4 *target,
+		long ntargets);
+searchFUNC optSearchFunc[32] = { nullptr/*0*/, simdgallop_4_4_rough/*1*/,
+		simdgallop_8_4_rough/*2*/, simdgallop_32_8_rough/*4*/,
+		simdgallop_64_8_rough/*8*/, simdgallop_256_16_rough/*16*/,
+		simdgallop_256_16_rough/*32*/, simdgallop_512_16_rough/*64*/,
+		simdgallop_512_32_rough/*128*/, simdgallop_512_32_rough/*256*/,
+		simdgallop_512_32_rough/*512*/, simdgallop_256_32_rough/*1024*/,
+		simdgallop_512_64_rough/*2048*/, simdgallop_512_64_rough/*4096*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough/*8192*/,
+		simdgallop_512_64_rough/*8192*/, simdgallop_512_64_rough /*8192*/};
 }
 #endif /* INCLUDE_MSIS_GALLOP_ROUGH_HPP_ */
