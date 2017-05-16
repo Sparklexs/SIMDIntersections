@@ -51,7 +51,6 @@ int main(int argc, char **argv) {
 		case 'u':
 			safe = false;
 			break;
-
 		case 'n':
 			natemode = true;
 			break;

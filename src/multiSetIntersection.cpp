@@ -2,6 +2,7 @@
  * multiSetIntersection.cpp
  * scalar algorithms for intersecting multiple sets.
  * Reference:
+ <<<<<<< HEAD
  * (1)  Culpepper, J. S., & Moffat, A. (2010).
  *      Efficient set intersection for inverted indexing.
  *      Acm Transactions on Information Systems, 29(1), 1.

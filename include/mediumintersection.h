@@ -7,6 +7,7 @@
 #define VECLEN (sizeof(VEC)/sizeof(uint32_t))
 #define VECMAX (VECLEN - 1)
 
+// designed by Nathan Kurz ("Nate")
 size_t nate_count_scalar(const uint32_t *A, const size_t lenA,
 		const uint32_t *B, const size_t lenB) {
 
@@ -38,34 +39,35 @@ size_t nate_count_scalar(const uint32_t *A, const size_t lenA,
 	return count; // NOTREACHED
 }
 
-size_t nate_scalar(const uint32_t *A, const size_t lenA, const uint32_t *B,
-		const size_t lenB, uint32_t * out) {
-	const uint32_t * const initout(out);
-	if (lenA == 0 || lenB == 0)
-		return 0;
+// designed by Nathan Kurz ("Nate")
+size_t nate_scalar(const uint32_t *A, const size_t lenA,
+        const uint32_t *B, const size_t lenB, uint32_t * out) {
+    const uint32_t * const initout(out);
+    if (lenA == 0 || lenB == 0)
+        return 0;
 
-	const uint32_t *endA = A + lenA;
-	const uint32_t *endB = B + lenB;
+    const uint32_t *endA = A + lenA;
+    const uint32_t *endB = B + lenB;
 
-	while (1) {
-		while (*A < *B) {
-			SKIP_FIRST_COMPARE: if (++A == endA)
-				return (out - initout);
-		}
-		while (*A > *B) {
-			if (++B == endB)
-				return (out - initout);
-		}
-		if (*A == *B) {
-			*out++ = *A;
-			if (++A == endA || ++B == endB)
-				return (out - initout);
-		} else {
-			goto SKIP_FIRST_COMPARE;
-		}
-	}
+    while (1) {
+        while (*A < *B) {
+            SKIP_FIRST_COMPARE: if (++A == endA)
+                return (out - initout);
+        }
+        while (*A > *B) {
+            if (++B == endB)
+                return (out - initout);
+        }
+        if (*A == *B) {
+            *out++ = *A;
+            if (++A == endA || ++B == endB)
+                return (out - initout);
+        } else {
+            goto SKIP_FIRST_COMPARE;
+        }
+    }
 
-	return (out - initout); // NOTREACHED
+    return (out - initout); // NOTREACHED
 }
 
 /**
@@ -103,6 +105,7 @@ size_t nate_scalarwithoutgoto(const uint32_t *A, const size_t lenA,
 	return (out - initout); // NOTREACHED
 }
 
+// designed by Nathan Kurz ("Nate")
 size_t nate_count_medium(const uint32_t *rare, const size_t lenRare,
 		const uint32_t *freq, const size_t lenFreq) {
 
@@ -657,6 +660,7 @@ size_t danfar_medium_mov(const uint32_t *rare, const size_t lenRare,
 					stopRare + rarespace - rare, out);
 }
 
+// designed by Daniel Lemire ("Dan")
 size_t danfarfar_medium(const uint32_t *rare, const size_t lenRare,
 		const uint32_t *freq, const size_t lenFreq, uint32_t * out) {
 	if (lenFreq == 0 || lenRare == 0)
@@ -799,6 +803,7 @@ size_t v3(const uint32_t *rare, const size_t lenRare, const uint32_t *freq,
 #ifdef __AVX2__
 #include <immintrin.h>
 
+// designed by Daniel Lemire ("Dan")
 size_t danfarfar_medium_avx2(const uint32_t *rare, const size_t lenRare,
 		const uint32_t *freq, const size_t lenFreq, uint32_t * out) {
 	if (lenFreq == 0 || lenRare == 0)
@@ -912,6 +917,7 @@ size_t v3avx2(const uint32_t *rare, const size_t lenRare,
 
 // sxs: compared with "danfar_count_medium", this method has four fined
 // divergences rather two
+// designed by Daniel Lemire ("Dan")
 size_t danfarfine_count_medium(const uint32_t *rare, const size_t lenRare,
 		const uint32_t *freq, const size_t lenFreq) {
 	size_t count = 0;
