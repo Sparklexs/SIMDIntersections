@@ -232,7 +232,7 @@ const std::string NAMESCALARFUNC[] = { "zip", "v1", "v3", "gallop", "inoue",
 constexpr uint32_t NUMSCALARFUNC = sizeof(scalarFUNC) / sizeof(scalarFUNC[0]);
 
 /////////////////////////////////////////
-#define METHOD (msis::SvS)(msis::s_SvS)(msis::sql)(msis::s_sql)(msis::max)(msis::BY)
+#define METHOD (msis::SvS)(msis::s_SvS)(msis::sql)(msis::s_sql)(msis::max)(msis::BY)(msis::svs)
 #define HEAD (_exact<msis::simd)(_rough<msis::simd)
 #define SEARCH (linear)(gallop)
 #define SIZE (_4)(_8)(_16)(_32)(_64)(_128)(_256)(_512)
@@ -324,11 +324,11 @@ void intersect_for_json(bool loadfromfile) {
 
 	WallClockTimer timer;
 	vector<float> intersectionsratios = { 0.10, 0.30, 0.50, 0.70, 0.90 }; // odds
-	vector<uint32_t> sizeratios = { 1, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
+	vector<uint32_t> sizeratios = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
 			2048, 4096, 8192 };
 
 	std::map<std::string, size_t> times = init_time_array();
-	for (uint32_t msb = 10; msb <= 10; ++msb) {
+	for (uint32_t msb = 10; msb <= 13; ++msb) {
 		minlength = 1U << msb;
 		ostringstream name("time_", std::ios::ate);
 		name << msb << ".json";
@@ -415,56 +415,56 @@ void intersect_for_json(bool loadfromfile) {
 
 						// test rough_gallop_rough
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max,5:BY,6:svs_me*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(0,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(1,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(1,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(2,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(2,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(3,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(3,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(4,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(4,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(5,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(5,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(6,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(6,SIZE))) /*4,8,16,32,64,128,256,512*/
 								(BOOST_PP_SEQ_FIRST_N(7,SIZE)) ((BOOST_PP_SEQ_ELEM(1,TAIL)))/*0:exact 1:rough 2:rough_plow*/
 								);
 						BOOST_PP_SEQ_FOR_EACH_PRODUCT(LOOP_BODY,
-								((BOOST_PP_SEQ_ELEM(4,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
+								((BOOST_PP_SEQ_ELEM(6,METHOD)))/*0:SvS,1:s_SvS,2:sql,3:s_sql,4:max*/
 								((BOOST_PP_SEQ_ELEM(1,HEAD)))/*0:exact 1:rough*/
 								((BOOST_PP_SEQ_ELEM(1,SEARCH)))/*0:linear 1:gallop*/
 								((BOOST_PP_SEQ_ELEM(7,SIZE))) /*4,8,16,32,64,128,256,512*/
@@ -610,16 +610,14 @@ void intersect_my_methods(bool loadfromfile) {
 
 	uint32_t MaxBit = 31; // largest bit-length of element
 	uint32_t minlength;
-	size_t REPETITION = 1;
+	size_t REPETITION;
 	size_t CASES = 20;
 
 	WallClockTimer timer;
-	vector<float> intersectionsratios = { 0.10, 0.20, 0.30, 0.40, 0.50, 0.60,
-			0.70, 0.80, 0.90, 1.00 };
-	vector<uint32_t> sizeratios = { /*1, 4, 8, 16, 32, 64, 128, 256, 512,*/1024 /*,
-	 2048, 4096, 8192*/};
-//	vector<float> intersectionsratios = { 0.10, 0.50, 1.00 };
-//	vector<uint32_t> sizeratios = { 1, 10, 100, 1000, 10000 };
+	vector<float> intersectionsratios = { /*0.10, 0.20, 0.30, 0.40, */0.50 /*, 0.60,
+	 0.70, 0.80, 0.90, 1.00 */};
+	vector<uint32_t> sizeratios = { /*1, 4, 8, 16, 32, 64, 128, 256,*/512, 1024,
+			2048, 4096, 8192 };
 
 	FILE *pfile = fopen("output_mine.csv", "w+");
 	fprintf(pfile, "sr,ir,num,name,time\n");
@@ -631,10 +629,10 @@ void intersect_my_methods(bool loadfromfile) {
 			printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
 			for (uint32_t sr : sizeratios) {
 				printf("  size ratio: \e[32m%4d\e[0m\n", sr);
-//				if (sr > 1000)
-//					REPETITION = 100;
-//				else
-//					REPETITION = 200;
+				if (sr > 1000)
+					REPETITION = 100;
+				else
+					REPETITION = 200;
 				for (uint32_t num = 2; num < 11; num++) {
 //					times["SvS_gallop_exact"] = 0;
 //					times["SvS_gallop_rough"] = 0;
@@ -645,9 +643,10 @@ void intersect_my_methods(bool loadfromfile) {
 					times["max_gallop_rough"] = 0;
 					times["lemire"] = 0;
 					times["svs_opt"] = 0;
+					times["max"] = 0;
 					time_t t = time(nullptr);
 					tm* _tm = localtime(&t);
-					printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  ",
+					printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  \n",
 							_tm->tm_hour, _tm->tm_min, _tm->tm_sec, num);
 
 					for (uint32_t k = 0; k < CASES; k++) {
@@ -739,6 +738,13 @@ void intersect_my_methods(bool loadfromfile) {
 //							max_rough_opt(multiset, out);
 //						}
 //						times["max_rough_opt"] += timer.split();
+
+						timer.reset();
+						for (uint32_t howmany = 0; howmany < REPETITION;
+								++howmany) {
+							max_scalar(multiset, out);
+						}
+						times["max"] += timer.split();
 
 						timer.reset();
 						for (uint32_t howmany = 0; howmany < REPETITION;

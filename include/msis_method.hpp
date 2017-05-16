@@ -32,12 +32,39 @@ void svs(const mySet &sets, std::vector<uint32_t> &out) {
 	out.swap(intersection);
 }
 
+template<flaggedintersectionfindfunction FINDFUNCTION>
+void svs_rough(const mySet &sets, std::vector<uint32_t> &out) {
+	mySet::iterator it = sets.begin();
+	// XXX: we'd like to use rvalue reference, however, it has conflicts
+	// with "const", and it finally become an copy operation.
+	std::vector<uint32_t> intersection(std::move(*it++));
+	int foundp;
+
+	for (; it != sets.end(); it++) {
+		auto eliminator = intersection.begin();
+		size_t index = 0;
+		size_t inter = 0;
+		while (eliminator != intersection.end()) {
+			index += FINDFUNCTION(&foundp, *eliminator, it->data() + index,
+					it->size() - 1 - index);
+			if (foundp == 1) {
+				intersection[inter++] = *eliminator;
+				if (++index == it->size())
+					break;
+			}
+			eliminator++;
+		}
+		intersection.resize(inter);
+	}
+	out.swap(intersection);
+}
+
 void svs_opt(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
 // XXX: we'd like to use rvalue reference, however, it has conflicts
 // with "const", and it finally become an copy operation.
 	std::vector<uint32_t> intersection(std::move(*it++));
-	size_t search = 0;
+//	size_t search = 0;
 	int foundp;
 
 	for (; it != sets.end(); it++) {
@@ -50,7 +77,7 @@ void svs_opt(const mySet &sets, std::vector<uint32_t> &out) {
 		while (eliminator != intersection.end()) {
 			index += vec_search(&foundp, *eliminator, it->data() + index,
 					it->size() - 1 - index);
-			search++;
+//			search++;
 			if (foundp == 1) {
 				intersection[inter++] = *eliminator;
 				if (++index == it->size())
@@ -61,7 +88,7 @@ void svs_opt(const mySet &sets, std::vector<uint32_t> &out) {
 		intersection.resize(inter);
 	}
 	out.swap(intersection);
-	std::cout << "opt," << search << std::endl;
+//	std::cout << "opt," << search << std::endl;
 }
 
 /* set_vs_set */
@@ -77,13 +104,13 @@ void SvS_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	auto value = out.begin();
 	auto eliminator = candidate.begin();
 	std::vector<size_t> index(sets.size() - 1, 0);
-	size_t search = 0, update = 0;
+//	size_t search = 0, update = 0;
 
 	while (eliminator != candidate.end()) {
 		index[currentset] += FINDFUNCTION(*eliminator,
 				it->data() + index[currentset],
 				it->size() - 1 - index[currentset]);
-		search++;
+//		search++;
 		if (it->at(index[currentset]) == *eliminator) {
 			index[currentset]++;
 			it++;
@@ -97,12 +124,12 @@ void SvS_exact(const mySet &sets, std::vector<uint32_t> &out) {
 			}
 		} else {
 			currentset = 0;
-			update++;
+//			update++;
 			it = it_start;
 			eliminator++;
 		}
 	}
-	std::cout << "(" << search << ", " << update + count << ")  ";
+//	std::cout << "(" << search << ", " << update + count << ")  ";
 	out.resize(count);
 }
 
@@ -693,13 +720,13 @@ void max_rough(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it_start = it++, it_elim = it_start;
 	std::vector<size_t> index(sets.size(), 0);
 	int foundp;
-	size_t search = 0, update = 0;
+//	size_t search = 0, update = 0;
 
 	while (_LIKELY(index[currentset] < it->size())) {
 		index[currentset] += FINDFUNCTION(&foundp, *value,
 				it->data() + index[currentset],
 				it->size() - 1 - index[currentset]);
-		search++;
+//		search++;
 
 		if (foundp == 1) {
 			intersect_count++;
@@ -752,8 +779,8 @@ void max_rough(const mySet &sets, std::vector<uint32_t> &out) {
 			}
 		}
 	}
-	std::cout << "max," << search
-			<< std::endl /*<< ", " << update + count << ")  "*/;
+//	std::cout << "max," << search
+//			<< std::endl /*<< ", " << update + count << ")  "*/;
 	out.resize(count);
 }
 

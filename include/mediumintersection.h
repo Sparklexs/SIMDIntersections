@@ -1008,13 +1008,14 @@ size_t SIMDgalloping(const uint32_t *rare, const size_t lenRare,
 		return 0;
 	assert(lenRare <= lenFreq);
 	const uint32_t * const initout(out);
-	size_t compare = 0, simdcompare = 0;
+//	size_t compare = 0, simdcompare = 0;
 
 	const size_t freqspace = 32 * VECLEN;
 	const size_t rarespace = 1;
 
 	const uint32_t *stopFreq = freq + lenFreq - freqspace;
 	const uint32_t *stopRare = rare + lenRare - rarespace;
+//	compare++;
 	if (freq > stopFreq) {
 		return nate_scalar(freq, lenFreq, rare, lenRare, out);
 	}
@@ -1022,32 +1023,31 @@ size_t SIMDgalloping(const uint32_t *rare, const size_t lenRare,
 		const uint32_t matchRare = *rare; //nextRare;
 		const VEC Match = _mm_set1_epi32(matchRare);
 
-		compare++;
+//		compare++;
 		if (freq[VECLEN * 31 + VECMAX] < matchRare) { // if no match possible
 			uint32_t offset = 1;
-			compare++;
-			compare++;
+//			compare++;
 			if (freq + freqspace > stopFreq) {
 				freq += freqspace;
 				goto FINISH_SCALAR;
 			}
-			compare++;
+//			compare++;
 			while (freq[freqspace * offset + VECLEN * 31 + VECMAX] < matchRare) {
-				compare++;
+//				compare++;
 				// if no match possible
 				// sxs: keep on doubling the offset until we find the
 				// range [offset/2,offset] where the match may fall into.
 				// in case offset*2 exceeds the boundary, it will be fixed
 				// to the last stopFreq
-				compare++;
+//				compare++;
 				if (freq + freqspace * (2 * offset) <= stopFreq) {
 					offset *= 2;
 				} else if (freq + freqspace * (offset + 1) <= stopFreq) {
-					compare++;
+//					compare++;
 					offset =
 							static_cast<uint32_t>((stopFreq - freq) / freqspace);
 					//offset += 1;
-					compare++;
+//					compare++;
 					if (freq[freqspace * offset + VECLEN * 31 + VECMAX]
 							< matchRare) {
 						freq += freqspace * offset;
@@ -1063,7 +1063,7 @@ size_t SIMDgalloping(const uint32_t *rare, const size_t lenRare,
 			uint32_t lower = offset / 2;
 			while (lower + 1 != offset) {
 				const uint32_t mid = (lower + offset) / 2;
-				compare++;
+//				compare++;
 				if (freq[freqspace * mid + VECLEN * 31 + VECMAX] < matchRare)
 					lower = mid;
 				else
@@ -1072,8 +1072,8 @@ size_t SIMDgalloping(const uint32_t *rare, const size_t lenRare,
 			freq += freqspace * offset;
 		}
 		VEC Q0, Q1, Q2, Q3;
-		compare += 2;
-		simdcompare += 40;
+//		compare += 2;
+//		simdcompare += 40;
 		if (freq[VECLEN * 15 + VECMAX] >= matchRare) {
 			if (freq[VECLEN * 7 + VECMAX] < matchRare) {
 				Q0 = _mm_or_si128(
@@ -1172,8 +1172,8 @@ size_t SIMDgalloping(const uint32_t *rare, const size_t lenRare,
 			*out++ = matchRare;
 		}
 	}
-	std::cout << compare << "," << simdcompare << std::endl;
-	FINISH_SCALAR: return (out - initout)
+	FINISH_SCALAR: /* std::cout << compare << "," << simdcompare << std::endl;*/
+	return (out - initout)
 			+ nate_scalar(freq, stopFreq + freqspace - freq, rare,
 					stopRare + rarespace - rare, out);
 }

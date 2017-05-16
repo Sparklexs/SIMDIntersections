@@ -18,10 +18,12 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V4_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -29,8 +31,10 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V4_BLOCKSIZE - 1] < goal)) {
 		if (target + V4_BLOCKSIZE > stop_target) {
@@ -41,10 +45,15 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V4_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -52,7 +61,11 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V4_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V4_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V4_BLOCKSIZE * high_offset + V4_BLOCKSIZE - 1]
 						< goal) {
 					target += V4_BLOCKSIZE * high_offset;
@@ -63,12 +76,14 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V4_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V4_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -77,11 +92,14 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V4_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V4_BLOCKSIZE * mid_offset + V4_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -90,6 +108,8 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V4_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 5;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 = _mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0),
 			Match);
@@ -97,6 +117,7 @@ long simdgallop_4_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -105,10 +126,12 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V8_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -116,8 +139,10 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V8_BLOCKSIZE - 1] < goal)) {
 		if (target + V8_BLOCKSIZE > stop_target) {
@@ -128,10 +153,15 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V8_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -139,7 +169,11 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V8_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V8_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1]
 						< goal) {
 					target += V8_BLOCKSIZE * high_offset;
@@ -150,12 +184,14 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V8_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V8_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -164,11 +200,14 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V8_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V8_BLOCKSIZE * mid_offset + V8_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -177,6 +216,8 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V8_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 5;
 	if (target[3] < goal) {
 		target += 4;
 	}
@@ -187,6 +228,7 @@ long simdgallop_8_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -195,10 +237,12 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V8_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -206,8 +250,10 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V8_BLOCKSIZE - 1] < goal)) {
 		if (target + V8_BLOCKSIZE > stop_target) {
@@ -218,10 +264,15 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V8_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -229,7 +280,11 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V8_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V8_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V8_BLOCKSIZE * high_offset + V8_BLOCKSIZE - 1]
 						< goal) {
 					target += V8_BLOCKSIZE * high_offset;
@@ -240,12 +295,14 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V8_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V8_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -254,11 +311,14 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V8_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V8_BLOCKSIZE * mid_offset + V8_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -267,6 +327,8 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V8_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 10;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 = _mm_or_si128(
 			_mm_cmpeq_epi32(_mm_lddqu_si128((__m128i *) target + 0), Match),
@@ -275,6 +337,7 @@ long simdgallop_8_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -283,10 +346,12 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V16_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -294,8 +359,10 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V16_BLOCKSIZE - 1] < goal)) {
 		if (target + V16_BLOCKSIZE > stop_target) {
@@ -306,10 +373,15 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -317,7 +389,11 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V16_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
 						< goal) {
 					target += V16_BLOCKSIZE * high_offset;
@@ -328,12 +404,14 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V16_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V16_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -342,11 +420,14 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V16_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V16_BLOCKSIZE * mid_offset + V16_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -355,6 +436,8 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V16_BLOCKSIZE * high_offset;
 	}
+//compare += 2;
+//simdcompare += 5;
 	if (target[7] >= goal) {
 		if (target[3] < goal) {
 			target += 4;
@@ -373,6 +456,7 @@ long simdgallop_16_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -381,10 +465,12 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V16_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -392,8 +478,10 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V16_BLOCKSIZE - 1] < goal)) {
 		if (target + V16_BLOCKSIZE > stop_target) {
@@ -404,10 +492,15 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -415,7 +508,11 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V16_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
 						< goal) {
 					target += V16_BLOCKSIZE * high_offset;
@@ -426,12 +523,14 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V16_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V16_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -440,11 +539,14 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V16_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V16_BLOCKSIZE * mid_offset + V16_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -453,6 +555,8 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V16_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 10;
 	if (target[7] < goal) {
 		target += 8;
 	}
@@ -464,6 +568,7 @@ long simdgallop_16_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -472,10 +577,12 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V16_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -483,8 +590,10 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V16_BLOCKSIZE - 1] < goal)) {
 		if (target + V16_BLOCKSIZE > stop_target) {
@@ -495,10 +604,15 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V16_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -506,7 +620,11 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V16_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V16_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V16_BLOCKSIZE * high_offset + V16_BLOCKSIZE - 1]
 						< goal) {
 					target += V16_BLOCKSIZE * high_offset;
@@ -517,12 +635,14 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V16_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V16_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -531,11 +651,14 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V16_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V16_BLOCKSIZE * mid_offset + V16_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -544,6 +667,8 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V16_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 20;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 = _mm_or_si128(
 			_mm_or_si128(
@@ -560,6 +685,7 @@ long simdgallop_16_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -568,10 +694,12 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -579,8 +707,10 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
@@ -591,10 +721,15 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -602,7 +737,11 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
 					target += V32_BLOCKSIZE * high_offset;
@@ -613,12 +752,14 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V32_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -627,11 +768,14 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V32_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V32_BLOCKSIZE * mid_offset + V32_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -640,6 +784,8 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V32_BLOCKSIZE * high_offset;
 	}
+//compare += 3;
+//simdcompare += 5;
 	if (target[15] >= goal) {
 		if (target[7] >= goal) {
 			if (target[3] < goal) {
@@ -674,6 +820,7 @@ long simdgallop_32_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -682,10 +829,12 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -693,8 +842,10 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
@@ -705,10 +856,15 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -716,7 +872,11 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
 					target += V32_BLOCKSIZE * high_offset;
@@ -727,12 +887,14 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V32_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -741,11 +903,14 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V32_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V32_BLOCKSIZE * mid_offset + V32_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -754,6 +919,8 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V32_BLOCKSIZE * high_offset;
 	}
+//compare += 2;
+//simdcompare += 10;
 	if (target[15] >= goal) {
 		if (target[7] < goal) {
 			target += 8;
@@ -773,6 +940,7 @@ long simdgallop_32_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -781,10 +949,12 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -792,8 +962,10 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
@@ -804,10 +976,15 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -815,7 +992,11 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
 					target += V32_BLOCKSIZE * high_offset;
@@ -826,12 +1007,14 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V32_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -840,11 +1023,14 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V32_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V32_BLOCKSIZE * mid_offset + V32_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -853,6 +1039,8 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V32_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 20;
 	if (target[15] < goal) {
 		target += 16;
 	}
@@ -872,6 +1060,7 @@ long simdgallop_32_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -880,10 +1069,12 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V32_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -891,8 +1082,10 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V32_BLOCKSIZE - 1] < goal)) {
 		if (target + V32_BLOCKSIZE > stop_target) {
@@ -903,10 +1096,15 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V32_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -914,7 +1112,11 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V32_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V32_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V32_BLOCKSIZE * high_offset + V32_BLOCKSIZE - 1]
 						< goal) {
 					target += V32_BLOCKSIZE * high_offset;
@@ -925,12 +1127,14 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V32_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V32_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -939,11 +1143,14 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V32_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V32_BLOCKSIZE * mid_offset + V32_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -952,6 +1159,8 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V32_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 40;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 = _mm_or_si128(
 			_mm_or_si128(
@@ -988,6 +1197,7 @@ long simdgallop_32_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -996,10 +1206,12 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1007,8 +1219,10 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
@@ -1019,10 +1233,15 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1030,7 +1249,11 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
 					target += V64_BLOCKSIZE * high_offset;
@@ -1041,12 +1264,14 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V64_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1055,11 +1280,14 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V64_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -1068,6 +1296,8 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V64_BLOCKSIZE * high_offset;
 	}
+//compare += 4;
+//simdcompare += 5;
 	if (target[31] >= goal) {
 		if (target[15] >= goal) {
 			if (target[7] >= goal) {
@@ -1134,6 +1364,7 @@ long simdgallop_64_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -1142,10 +1373,12 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1153,8 +1386,10 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
@@ -1165,10 +1400,15 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1176,7 +1416,11 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
 					target += V64_BLOCKSIZE * high_offset;
@@ -1187,12 +1431,14 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V64_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1201,11 +1447,14 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V64_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -1214,6 +1463,8 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V64_BLOCKSIZE * high_offset;
 	}
+//compare += 3;
+//simdcompare += 10;
 	if (target[31] >= goal) {
 		if (target[15] >= goal) {
 			if (target[7] < goal) {
@@ -1249,6 +1500,7 @@ long simdgallop_64_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -1257,10 +1509,12 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1268,8 +1522,10 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
@@ -1280,10 +1536,15 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1291,7 +1552,11 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
 					target += V64_BLOCKSIZE * high_offset;
@@ -1302,12 +1567,14 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V64_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1316,11 +1583,14 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V64_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -1329,6 +1599,8 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V64_BLOCKSIZE * high_offset;
 	}
+//compare += 2;
+//simdcompare += 20;
 	if (target[31] >= goal) {
 		if (target[15] < goal) {
 			target += 16;
@@ -1356,6 +1628,7 @@ long simdgallop_64_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -1364,10 +1637,12 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1375,8 +1650,10 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
@@ -1387,10 +1664,15 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1398,7 +1680,11 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
 					target += V64_BLOCKSIZE * high_offset;
@@ -1409,12 +1695,14 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V64_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1423,11 +1711,14 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V64_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -1436,6 +1727,8 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V64_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 40;
 	if (target[31] < goal) {
 		target += 32;
 	}
@@ -1475,6 +1768,7 @@ long simdgallop_64_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -1483,10 +1777,12 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V64_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1494,8 +1790,10 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V64_BLOCKSIZE - 1] < goal)) {
 		if (target + V64_BLOCKSIZE > stop_target) {
@@ -1506,10 +1804,15 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V64_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1517,7 +1820,11 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V64_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V64_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V64_BLOCKSIZE * high_offset + V64_BLOCKSIZE - 1]
 						< goal) {
 					target += V64_BLOCKSIZE * high_offset;
@@ -1528,12 +1835,14 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V64_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V64_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1542,11 +1851,14 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V64_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V64_BLOCKSIZE * mid_offset + V64_BLOCKSIZE - 1] < goal) {
 				low_offset = mid_offset + 1;
 			} else {
@@ -1555,6 +1867,8 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V64_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 80;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 = _mm_or_si128(
 			_mm_or_si128(
@@ -1639,6 +1953,7 @@ long simdgallop_64_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -1647,10 +1962,12 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1658,8 +1975,10 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
@@ -1670,10 +1989,15 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1681,7 +2005,11 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
 					target += V128_BLOCKSIZE * high_offset;
@@ -1692,12 +2020,14 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V128_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1706,11 +2036,14 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V128_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -1720,6 +2053,8 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V128_BLOCKSIZE * high_offset;
 	}
+//compare += 5;
+//simdcompare += 5;
 	if (target[63] >= goal) {
 		if (target[31] >= goal) {
 			if (target[15] >= goal) {
@@ -1850,6 +2185,7 @@ long simdgallop_128_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -1858,10 +2194,12 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -1869,8 +2207,10 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
@@ -1881,10 +2221,15 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -1892,7 +2237,11 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
 					target += V128_BLOCKSIZE * high_offset;
@@ -1903,12 +2252,14 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V128_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -1917,11 +2268,14 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V128_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -1931,6 +2285,8 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V128_BLOCKSIZE * high_offset;
 	}
+//compare += 4;
+//simdcompare += 10;
 	if (target[63] >= goal) {
 		if (target[31] >= goal) {
 			if (target[15] >= goal) {
@@ -1998,6 +2354,7 @@ long simdgallop_128_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -2006,10 +2363,12 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -2017,8 +2376,10 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
@@ -2029,10 +2390,15 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -2040,7 +2406,11 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
 					target += V128_BLOCKSIZE * high_offset;
@@ -2051,12 +2421,14 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V128_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -2065,11 +2437,14 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V128_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -2079,6 +2454,8 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V128_BLOCKSIZE * high_offset;
 	}
+//compare += 3;
+//simdcompare += 20;
 	if (target[63] >= goal) {
 		if (target[31] >= goal) {
 			if (target[15] < goal) {
@@ -2122,6 +2499,7 @@ long simdgallop_128_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -2130,10 +2508,12 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -2141,8 +2521,10 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
@@ -2153,10 +2535,15 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -2164,7 +2551,11 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
 					target += V128_BLOCKSIZE * high_offset;
@@ -2175,12 +2566,14 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V128_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -2189,11 +2582,14 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V128_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -2203,6 +2599,8 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V128_BLOCKSIZE * high_offset;
 	}
+//compare += 2;
+//simdcompare += 40;
 	if (target[63] >= goal) {
 		if (target[31] < goal) {
 			target += 32;
@@ -2250,6 +2648,7 @@ long simdgallop_128_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -2258,10 +2657,12 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -2269,8 +2670,10 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
@@ -2281,10 +2684,15 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -2292,7 +2700,11 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
 					target += V128_BLOCKSIZE * high_offset;
@@ -2303,12 +2715,14 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V128_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -2317,11 +2731,14 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V128_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -2331,6 +2748,8 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V128_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 80;
 	if (target[63] < goal) {
 		target += 64;
 	}
@@ -2418,6 +2837,7 @@ long simdgallop_128_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -2426,10 +2846,12 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V128_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -2437,8 +2859,10 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V128_BLOCKSIZE - 1] < goal)) {
 		if (target + V128_BLOCKSIZE > stop_target) {
@@ -2449,10 +2873,15 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V128_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -2460,7 +2889,11 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V128_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V128_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V128_BLOCKSIZE * high_offset + V128_BLOCKSIZE - 1]
 						< goal) {
 					target += V128_BLOCKSIZE * high_offset;
@@ -2471,12 +2904,14 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V128_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V128_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -2485,11 +2920,14 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V128_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V128_BLOCKSIZE * mid_offset + V128_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -2499,6 +2937,8 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V128_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 160;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 = _mm_or_si128(
 			_mm_or_si128(
@@ -2695,6 +3135,7 @@ long simdgallop_128_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -2703,10 +3144,12 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -2714,8 +3157,10 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -2726,10 +3171,15 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -2737,7 +3187,11 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -2748,12 +3202,14 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -2762,11 +3218,14 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -2776,6 +3235,8 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 6;
+//simdcompare += 5;
 	if (target[127] >= goal) {
 		if (target[63] >= goal) {
 			if (target[31] >= goal) {
@@ -3034,6 +3495,7 @@ long simdgallop_256_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -3042,10 +3504,12 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -3053,8 +3517,10 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -3065,10 +3531,15 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -3076,7 +3547,11 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -3087,12 +3562,14 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -3101,11 +3578,14 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -3115,6 +3595,8 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 5;
+//simdcompare += 10;
 	if (target[127] >= goal) {
 		if (target[63] >= goal) {
 			if (target[31] >= goal) {
@@ -3246,6 +3728,7 @@ long simdgallop_256_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -3254,10 +3737,12 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -3265,8 +3750,10 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -3277,10 +3764,15 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -3288,7 +3780,11 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -3299,12 +3795,14 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -3313,11 +3811,14 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -3327,6 +3828,8 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 4;
+//simdcompare += 20;
 	if (target[127] >= goal) {
 		if (target[63] >= goal) {
 			if (target[31] >= goal) {
@@ -3402,6 +3905,7 @@ long simdgallop_256_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -3410,10 +3914,12 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -3421,8 +3927,10 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -3433,10 +3941,15 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -3444,7 +3957,11 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -3455,12 +3972,14 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -3469,11 +3988,14 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -3483,6 +4005,8 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 3;
+//simdcompare += 40;
 	if (target[127] >= goal) {
 		if (target[63] >= goal) {
 			if (target[31] < goal) {
@@ -3546,6 +4070,7 @@ long simdgallop_256_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -3554,10 +4079,12 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -3565,8 +4092,10 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -3577,10 +4106,15 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -3588,7 +4122,11 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -3599,12 +4137,14 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -3613,11 +4153,14 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -3627,6 +4170,8 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 2;
+//simdcompare += 80;
 	if (target[127] >= goal) {
 		if (target[63] < goal) {
 			target += 64;
@@ -3722,6 +4267,7 @@ long simdgallop_256_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -3730,10 +4276,12 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -3741,8 +4289,10 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -3753,10 +4303,15 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -3764,7 +4319,11 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -3775,12 +4334,14 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -3789,11 +4350,14 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -3803,6 +4367,8 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 160;
 	if (target[127] < goal) {
 		target += 128;
 	}
@@ -4002,6 +4568,7 @@ long simdgallop_256_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -4010,10 +4577,12 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V256_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -4021,8 +4590,10 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V256_BLOCKSIZE - 1] < goal)) {
 		if (target + V256_BLOCKSIZE > stop_target) {
@@ -4033,10 +4604,15 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V256_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -4044,7 +4620,11 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V256_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V256_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V256_BLOCKSIZE * high_offset + V256_BLOCKSIZE - 1]
 						< goal) {
 					target += V256_BLOCKSIZE * high_offset;
@@ -4055,12 +4635,14 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V256_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V256_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -4069,11 +4651,14 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V256_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V256_BLOCKSIZE * mid_offset + V256_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -4083,6 +4668,8 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V256_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 320;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 =
 			_mm_or_si128(
@@ -4472,6 +5059,7 @@ long simdgallop_256_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -4480,10 +5068,12 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -4491,8 +5081,10 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -4503,10 +5095,15 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -4514,7 +5111,11 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -4525,12 +5126,14 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -4539,11 +5142,14 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -4553,6 +5159,8 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 7;
+//simdcompare += 5;
 	if (target[255] >= goal) {
 		if (target[127] >= goal) {
 			if (target[63] >= goal) {
@@ -5067,6 +5675,7 @@ long simdgallop_512_4_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -5075,10 +5684,12 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -5086,8 +5697,10 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -5098,10 +5711,15 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -5109,7 +5727,11 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -5120,12 +5742,14 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -5134,11 +5758,14 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -5148,6 +5775,8 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 6;
+//simdcompare += 10;
 	if (target[255] >= goal) {
 		if (target[127] >= goal) {
 			if (target[63] >= goal) {
@@ -5407,6 +6036,7 @@ long simdgallop_512_8_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -5415,10 +6045,12 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -5426,8 +6058,10 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -5438,10 +6072,15 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -5449,7 +6088,11 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -5460,12 +6103,14 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -5474,11 +6119,14 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -5488,6 +6136,8 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 5;
+//simdcompare += 20;
 	if (target[255] >= goal) {
 		if (target[127] >= goal) {
 			if (target[63] >= goal) {
@@ -5627,6 +6277,7 @@ long simdgallop_512_16_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -5635,10 +6286,12 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -5646,8 +6299,10 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -5658,10 +6313,15 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -5669,7 +6329,11 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -5680,12 +6344,14 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -5694,11 +6360,14 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -5708,6 +6377,8 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 4;
+//simdcompare += 40;
 	if (target[255] >= goal) {
 		if (target[127] >= goal) {
 			if (target[63] >= goal) {
@@ -5803,6 +6474,7 @@ long simdgallop_512_32_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -5811,10 +6483,12 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -5822,8 +6496,10 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -5834,10 +6510,15 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -5845,7 +6526,11 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -5856,12 +6541,14 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -5870,11 +6557,14 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -5884,6 +6574,8 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 3;
+//simdcompare += 80;
 	if (target[255] >= goal) {
 		if (target[127] >= goal) {
 			if (target[63] < goal) {
@@ -5995,6 +6687,7 @@ long simdgallop_512_64_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -6003,10 +6696,12 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -6014,8 +6709,10 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -6026,10 +6723,15 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -6037,7 +6739,11 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -6048,12 +6754,14 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -6062,11 +6770,14 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -6076,6 +6787,8 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 2;
+//simdcompare += 160;
 	if (target[255] >= goal) {
 		if (target[127] < goal) {
 			target += 128;
@@ -6283,6 +6996,7 @@ long simdgallop_512_128_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -6291,10 +7005,12 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -6302,8 +7018,10 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -6314,10 +7032,15 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -6325,7 +7048,11 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -6336,12 +7063,14 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -6350,11 +7079,14 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -6364,6 +7096,8 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 1;
+//simdcompare += 320;
 	if (target[255] < goal) {
 		target += 256;
 	}
@@ -6756,6 +7490,7 @@ long simdgallop_512_256_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
 long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
@@ -6764,10 +7499,12 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 
 	long low_offset = 0, mid_offset, high_offset = 1;
 	long pos;
+	//size_t compare = 0, simdcompare = 0;
 
 	init_target = target;
 	stop_target = target + ntargets - V512_BLOCKSIZE;
 	end_target = target + ntargets;
+	//compare++;
 
 	if (_UNLIKELY(target >= stop_target)) {
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets
@@ -6775,8 +7512,10 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			*foundp = 1;
 		else
 			*foundp = 0;
+		//std::cout << compare << "," << simdcompare << std::endl;
 		return pos;
 	}
+	//compare+=2;
 
 	if (_UNLIKELY(target[V512_BLOCKSIZE - 1] < goal)) {
 		if (target + V512_BLOCKSIZE > stop_target) {
@@ -6787,10 +7526,15 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 				*foundp = 1;
 			else
 				*foundp = 0;
+			//std::cout << compare << "," << simdcompare << std::endl;
 			return pos;
 		}
+		//compare++;
+
 		/* Galloping search */
 		while (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1] < goal) {
+			//compare+=2;
+
 			if (target + (high_offset << 1) * V512_BLOCKSIZE <= stop_target) {
 				//doubled
 				low_offset = high_offset;
@@ -6798,7 +7542,11 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 			} else if (target + V512_BLOCKSIZE * (high_offset + 1)
 					<= stop_target) {
 				//more than one block left
+				//compare++;
+
 				high_offset = (stop_target - target) / V512_BLOCKSIZE;
+				//compare+=2;
+
 				if (target[V512_BLOCKSIZE * high_offset + V512_BLOCKSIZE - 1]
 						< goal) {
 					target += V512_BLOCKSIZE * high_offset;
@@ -6809,12 +7557,14 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 						*foundp = 1;
 					else
 						*foundp = 0;
+					//std::cout << compare << "," << simdcompare << std::endl;
 					return pos + V512_BLOCKSIZE * high_offset;
 				} else
 					break;
 			} else {
 				//only one block left
 				target += V512_BLOCKSIZE * high_offset;
+				//compare++;
 
 				pos = Intersection_find_scalar(goal, target,
 						(end_target - target));
@@ -6823,11 +7573,14 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 					*foundp = 1;
 				else
 					*foundp = 0;
+				//std::cout << compare << "," << simdcompare << std::endl;
 				return pos + V512_BLOCKSIZE * high_offset;
 			}
 		}
 		while (low_offset < high_offset) {
 			mid_offset = (low_offset + high_offset) / 2;
+			//compare++;
+
 			if (target[V512_BLOCKSIZE * mid_offset + V512_BLOCKSIZE - 1]
 					< goal) {
 				low_offset = mid_offset + 1;
@@ -6837,6 +7590,8 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		}
 		target += V512_BLOCKSIZE * high_offset;
 	}
+//compare += 0;
+//simdcompare += 640;
 	__m128i Match = _mm_set1_epi32(goal);
 	__m128i F0 =
 			_mm_or_si128(
@@ -7610,9 +8365,9 @@ long simdgallop_512_512_rough(int *foundp, UINT4 goal, const UINT4 *target,
 		*foundp = 0;
 	else
 		*foundp = 1;
+	//std::cout << compare << "," << simdcompare << std::endl;
 	return (target - init_target);
 }
-
 typedef long (*searchFUNC)(int *foundp, UINT4 goal, const UINT4 *target,
 		long ntargets);
 searchFUNC optSearchFunc[32] = { nullptr/*0*/, simdgallop_4_4_rough/*1*/,

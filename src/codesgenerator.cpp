@@ -10,26 +10,29 @@
 #include <sys/time.h>
 #include <cstring>
 #include <iostream>
+#include <math.h>
 
 using namespace std;
 
 void bisection(uint32_t, uint32_t, uint32_t);
 void simdor(uint32_t, uint32_t);
 
-void generate(uint32_t blocksize, uint32_t step) {
-	cout << "long simdgallop_" << blocksize << "_" << step << "_rough"
+void generate(uint32_t blocksize, uint32_t stepsize) {
+	cout << "long simdgallop_" << blocksize << "_" << stepsize << "_rough"
 			<< "(int *foundp, UINT4 goal, const UINT4 *target,\n\
 		long ntargets) {\n\
 	const UINT4 *end_target, *stop_target, *init_target;\n\
 \n\
 	long low_offset = 0, mid_offset, high_offset = 1;\n\
 	long pos;\n\
+    //size_t compare = 0, simdcompare = 0;\n\
 \n\
 	init_target = target;\n\
 	stop_target = target + ntargets - V"
 			<< blocksize
 			<< "_BLOCKSIZE;\n\
 	end_target = target + ntargets;\n\
+    //compare++;\n\
 \n\
 	if (_UNLIKELY(target >= stop_target)) {\n\
 		if ((pos = Intersection_find_scalar(goal, target, ntargets)) <= ntargets\n\
@@ -37,8 +40,10 @@ void generate(uint32_t blocksize, uint32_t step) {
 			*foundp = 1;\n\
 		else\n\
 			*foundp = 0;\n\
+		//std::cout << compare << \",\" << simdcompare << std::endl;\n\
 		return pos;\n\
 	}\n\
+    //compare+=2;\n\
 \n\
 	if (_UNLIKELY(target[V"
 			<< blocksize << "_BLOCKSIZE - 1] < goal)) {\n\
@@ -55,12 +60,17 @@ void generate(uint32_t blocksize, uint32_t step) {
 				*foundp = 1;\n\
 			else\n\
 				*foundp = 0;\n\
+			//std::cout << compare << \",\" << simdcompare << std::endl;\n\
 			return pos;\n\
 		}\n\
+        //compare++;\n\
+\n\
 		/* Galloping search */\n\
 		while (target[V"
 			<< blocksize << "_BLOCKSIZE * high_offset + V" << blocksize
 			<< "_BLOCKSIZE - 1] < goal) {\n\
+			 //compare+=2;\n\
+\n\
 			if (target + (high_offset << 1) * V"
 			<< blocksize
 			<< "_BLOCKSIZE <= stop_target) {\n\
@@ -72,10 +82,15 @@ void generate(uint32_t blocksize, uint32_t step) {
 			<< "_BLOCKSIZE * (high_offset + 1)\n\
 					<= stop_target) {\n\
 				//more than one block left\n\
+			        //compare++;\n\
+\n\
 				high_offset = (stop_target - target) / V"
-			<< blocksize << "_BLOCKSIZE;\n\
-				if (target[V" << blocksize
-			<< "_BLOCKSIZE * high_offset + V" << blocksize
+			<< blocksize
+			<< "_BLOCKSIZE;\n\
+        //compare+=2;\n\
+\n\
+				if (target[V"
+			<< blocksize << "_BLOCKSIZE * high_offset + V" << blocksize
 			<< "_BLOCKSIZE - 1]\n\
 						< goal) {\n\
 					target += V"
@@ -90,6 +105,7 @@ void generate(uint32_t blocksize, uint32_t step) {
 						*foundp = 1;\n\
 					else\n\
 						*foundp = 0;\n\
+					//std::cout << compare << \",\" << simdcompare << std::endl;\n\
 					return pos + V"
 			<< blocksize
 			<< "_BLOCKSIZE * high_offset;\n\
@@ -100,6 +116,7 @@ void generate(uint32_t blocksize, uint32_t step) {
 				target += V"
 			<< blocksize
 			<< "_BLOCKSIZE * high_offset;\n\
+        //compare++;\n\
 \n\
 				pos = Intersection_find_scalar(goal, target,\n\
 						(end_target - target));\n\
@@ -110,6 +127,7 @@ void generate(uint32_t blocksize, uint32_t step) {
 					*foundp = 1;\n\
 				else\n\
 					*foundp = 0;\n\
+				//std::cout << compare << \",\" << simdcompare << std::endl;\n\
 				return pos + V"
 			<< blocksize
 			<< "_BLOCKSIZE * high_offset;\n\
@@ -117,6 +135,8 @@ void generate(uint32_t blocksize, uint32_t step) {
 		}\n\
 		while (low_offset < high_offset) {\n\
 			mid_offset = (low_offset + high_offset) / 2;\n\
+        //compare++;\n\
+\n\
 			if (target[V"
 			<< blocksize << "_BLOCKSIZE * mid_offset + V" << blocksize
 			<< "_BLOCKSIZE - 1]\n\
@@ -129,17 +149,21 @@ void generate(uint32_t blocksize, uint32_t step) {
 		target += V"
 			<< blocksize << "_BLOCKSIZE * high_offset;\n\
 	}\n";
-	bisection(0, blocksize, step);
+	std::cout << "//compare += " << log2(blocksize / stepsize) << ";"
+			<< std::endl;
+	std::cout << "//simdcompare += " << stepsize * 5 / 4 << ";" << std::endl;
+	bisection(0, blocksize, stepsize);
 
 	cout << "__m128i Match = _mm_set1_epi32(goal);\n";
 	cout << "__m128i F0=";
-	simdor(0, step / 4 - 1);
+	simdor(0, stepsize / 4 - 1);
 	cout << ";\n";
 	cout
 			<< "	if (_mm_testz_si128(F0, F0))\n\
 		*foundp = 0;\n\
 	else\n\
 		*foundp = 1;\n\
+	//std::cout << compare << \",\" << simdcompare << std::endl;\n\
 	return (target - init_target);\n\
 }"
 			<< endl;
