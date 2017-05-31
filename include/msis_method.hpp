@@ -862,86 +862,48 @@ void max_rough_opt(const mySet &sets, std::vector<uint32_t> &out) {
 // further optimization can be search @freq[0] and @freq[freq_end] in @rare,
 // which helps target the real overlap of @rare and @freq
 template<intersectionfindfunction FINDFUNCTION>
-void BYintersect_sorted_exact(const uint32_t *freq, const size_t &freq_end,
-		const uint32_t *rare, const size_t &rare_end, uint32_t **out,
+void BYintersect_sorted(const uint32_t *freq, const size_t &freq_size,
+		const uint32_t *rare, const size_t &rare_size, uint32_t **out,
 		uint32_t &count) {
-	if (_LIKELY(
-			freq_end == -1 || rare_end == -1 || freq[0] > rare[rare_end]
-					|| rare[0] > freq[freq_end]))
+	if (_UNLIKELY(
+			rare_size == 0 || freq[0] > rare[rare_size - 1]
+					|| rare[0] > freq[freq_size - 1]))
 		return;
-	else {
-		size_t rare_mid = rare_end / 2;
-//		size_t freq_mid = msis::binarySearch_wider(freq, 0, freq_end,
-//				rare[rare_mid]);
-		size_t freq_mid = FINDFUNCTION(rare[rare_mid], freq, freq_end + 1);
-		if (freq_mid > rare_mid)
-			BYintersect_sorted_exact<FINDFUNCTION>(freq, freq_mid - 1, rare,
-					rare_mid - 1, out, count);
-		else
-			BYintersect_sorted_exact<FINDFUNCTION>(rare, rare_mid - 1, freq,
-					freq_mid - 1, out, count);
-		if (freq[freq_mid] == rare[rare_mid++]) {
-			*(*out)++ = freq[freq_mid++];
-			count++;
-		}
+	size_t rare_mid = rare_size / 2;
+	if (_UNLIKELY(freq[freq_size - 1] < rare[rare_mid])) {
+		// here freq_mid (actually freq_end) certainly less than rare_mid
+		BYintersect_sorted<FINDFUNCTION>(rare, rare_mid, freq, freq_size, out,
+				count);
+		return;
+	}
+	size_t freq_mid = FINDFUNCTION(rare[rare_mid], freq, freq_size - 1);
+	if (freq_mid > rare_mid)
+		BYintersect_sorted<FINDFUNCTION>(freq, freq_mid, rare, rare_mid, out,
+				count);
+	else
+		BYintersect_sorted<FINDFUNCTION>(rare, rare_mid, freq, freq_mid, out,
+				count);
+	if (freq[freq_mid] == rare[rare_mid++]) {
+		*(*out)++ = freq[freq_mid++];
+		count++;
+	}
 //		if (_UNLIKELY(freq_mid == freq_end || rare_mid == rare_end)) {
 //			if (freq[freq_mid] == rare[rare_mid]) {
 //				*(*out)++ = freq[freq_mid];
 //				i++;
 //			}
 //		} else {
-		if (freq_end - freq_mid > rare_end - rare_mid)
-			BYintersect_sorted_exact<FINDFUNCTION>(freq + freq_mid,
-					freq_end - freq_mid, rare + rare_mid, rare_end - rare_mid,
-					out, count);
-		else
-			BYintersect_sorted_exact<FINDFUNCTION>(rare + rare_mid,
-					rare_end - rare_mid, freq + freq_mid, freq_end - freq_mid,
-					out, count);
+	if (freq_size - freq_mid > rare_size - rare_mid)
+		BYintersect_sorted<FINDFUNCTION>(freq + freq_mid, freq_size - freq_mid,
+				rare + rare_mid, rare_size - rare_mid, out, count);
+	else
+		BYintersect_sorted<FINDFUNCTION>(rare + rare_mid, rare_size - rare_mid,
+				freq + freq_mid, freq_size - freq_mid, out, count);
 //		}
-	}
-}
-
-template<flaggedintersectionfindfunction FINDFUNCTION>
-void BYintersect_sorted_rough(const uint32_t *freq, const size_t &freq_end,
-		const uint32_t *rare, const size_t &rare_end, uint32_t **out,
-		uint32_t &count) {
-	if (_LIKELY(
-			freq_end == -1 || rare_end == -1 || freq[0] > rare[rare_end]
-					|| rare[0] > freq[freq_end]))
-		return;
-	else {
-		size_t rare_mid = rare_end / 2;
-		int foundp;
-		size_t freq_mid = FINDFUNCTION(&foundp, rare[rare_mid], freq,
-				freq_end + 1);
-		if (freq_mid > rare_mid)
-			BYintersect_sorted_rough<FINDFUNCTION>(freq, freq_mid - 1, rare,
-					rare_mid - 1, out, count);
-		else
-			BYintersect_sorted_rough<FINDFUNCTION>(rare, rare_mid - 1, freq,
-					freq_mid - 1, out, count);
-
-		if (foundp == 1) {
-			*(*out)++ = rare[rare_mid++];
-			freq_mid++;
-			count++;
-		}
-
-		if (freq_end - freq_mid > rare_end - rare_mid)
-			BYintersect_sorted_rough<FINDFUNCTION>(freq + freq_mid,
-					freq_end - freq_mid, rare + rare_mid, rare_end - rare_mid,
-					out, count);
-		else
-			BYintersect_sorted_rough<FINDFUNCTION>(rare + rare_mid,
-					rare_end - rare_mid, freq + freq_mid, freq_end - freq_mid,
-					out, count);
-//		}
-	}
 }
 
 template<intersectionfindfunction FINDFUNCTION>
-void BY_exact(const mySet &sets, std::vector<uint32_t> &out) {
+void BY(const mySet &sets, std::vector<uint32_t> &out) {
 	mySet::iterator it = sets.begin();
 	std::vector<uint32_t> intersection(std::move(*it++));
 
@@ -950,9 +912,8 @@ void BY_exact(const mySet &sets, std::vector<uint32_t> &out) {
 
 	for (; it != sets.end(); it++) {
 		uint32_t count = 0;
-
-		BYintersect_sorted_exact<FINDFUNCTION>(it->data(), it->size() - 1,
-				intersection.data(), intersection.size() - 1, pout, count);
+		BYintersect_sorted<FINDFUNCTION>(it->data(), it->size(),
+				intersection.data(), intersection.size(), pout, count);
 		intersection.resize(count);
 
 		out_init = intersection.data();
@@ -961,25 +922,181 @@ void BY_exact(const mySet &sets, std::vector<uint32_t> &out) {
 	out.swap(intersection);
 }
 
-template<flaggedintersectionfindfunction FINDFUNCTION>
-void BY_rough(const mySet &sets, std::vector<uint32_t> &out) {
-	mySet::iterator it = sets.begin();
-	std::vector<uint32_t> intersection(std::move(*it++));
+/* deprecated */
+template<intersectionfindfunction FINDFUNCTION>
+void BYintersect_holistic(
+		std::vector<std::pair<const uint32_t *, size_t /*size*/>> vsets,
+		uint32_t **out, uint32_t &count) {
+	if (_UNLIKELY(vsets[0].second == 0))
+		return;
 
-	uint32_t* out_init = intersection.data();
+	size_t list_mids[vsets.size()];
+	list_mids[0] = vsets[0].second / 2;
+
+	bool isdivided = true;
+	for (uint32_t i = 1; i < vsets.size(); i++) {
+		if (_UNLIKELY(
+				vsets[0].first[0] > vsets[i].first[vsets[i].second - 1]
+						|| vsets[0].first[vsets[0].second - 1]
+								< vsets[i].first[0]))
+			return;
+		// split from the end
+		if (_UNLIKELY(
+				vsets[i].first[vsets[i].second - 1]
+						< vsets[0].first[list_mids[0]])) {
+			list_mids[i] = vsets[i].second;
+			isdivided = false;
+			continue;
+		}
+		list_mids[i] = FINDFUNCTION(vsets[0].first[list_mids[0]],
+				vsets[i].first, vsets[i].second - 1);
+	}
+	// first half
+	std::vector<std::pair<const uint32_t *, size_t /*end*/>> firsthalf;
+	for (uint32_t i = 0; i < vsets.size(); i++) {
+		firsthalf.emplace_back(vsets[i].first, list_mids[i]);
+	}
+	std::sort(firsthalf.begin(), firsthalf.end(),
+			[](const std::pair<const uint32_t *, size_t>& lhs,
+					const std::pair<const uint32_t *, size_t>& rhs) {
+				return lhs.second < rhs.second;});
+	BYintersect_holistic<FINDFUNCTION>(firsthalf, out, count);
+
+	// middle and second half
+	if (isdivided) {
+		bool found = true;
+		for (uint32_t i = 1; i < vsets.size(); i++) {
+			if (vsets[i].first[list_mids[i]] != vsets[0].first[list_mids[0]]) {
+				found = false;
+				continue;
+			}
+			list_mids[i]++;
+		}
+		if (found) {
+			*(*out)++ = vsets[0].first[list_mids[0]];
+			count++;
+		}
+		list_mids[0]++;
+
+		for (uint32_t i = 0; i < vsets.size(); i++) {
+			vsets[i].first += list_mids[i];
+			vsets[i].second -= list_mids[i];
+		}
+		std::sort(vsets.begin(), vsets.end(),
+				[](const std::pair<const uint32_t *, size_t>& lhs,
+						const std::pair<const uint32_t *, size_t>& rhs) {
+					return lhs.second < rhs.second;});
+		BYintersect_holistic<FINDFUNCTION>(vsets, out, count);
+	}
+}
+
+/* incomplete! */
+template<intersectionfindfunction FINDFUNCTION>
+void BYintersect_holistic_new(
+		std::vector<std::pair<const uint32_t *, size_t /*size*/>> vsets,
+		uint32_t **out, uint32_t &count) {
+	if (_UNLIKELY(vsets[0].second == 0))
+		return;
+
+	size_t list_mids[vsets.size()];
+	list_mids[0] = vsets[0].second / 2;
+	for (size_t i = 1; i < vsets.size(); i++)
+		list_mids[i] = 0;
+
+	std::vector<std::pair<size_t, size_t /*size*/>> boundaries(vsets.size());
+	boundaries[0].first = vsets[0].second / 2 - 1;
+	boundaries[0].second = vsets[0].second / 2 + 1;
+	for (size_t i = 1; i < vsets.size(); i++) {
+		boundaries[i].first = vsets[i].second - 1;
+		boundaries[i].second = 0;
+	}
+
+	uint32_t value = vsets[0].first[list_mids[0]];
+	uint32_t currentset = 1, elimset = 0;
+	bool left = true, right = true;
+
+	while (currentset < vsets.size()) {
+		if (_UNLIKELY(
+				vsets[currentset].first[list_mids[currentset]]
+						== vsets[elimset].first[list_mids[elimset]])) {
+			if (boundaries[currentset].first > list_mids[currentset] - 1)
+				boundaries[currentset].first = list_mids[currentset] - 1;
+			if (boundaries[currentset].second < list_mids[currentset] + 1)
+				boundaries[currentset].second = list_mids[currentset] + 1;
+			currentset++;
+			if (currentset == elimset)
+				currentset++;
+		} else if (vsets[currentset].first[list_mids[currentset]]
+				< vsets[elimset].first[list_mids[elimset]]) {
+			//TODO: boundary is negative
+			if (boundaries[currentset].second >= vsets[currentset].second - 1) {
+				right = false;
+				break;
+			}
+			list_mids[currentset] = FINDFUNCTION(
+					vsets[elimset].first[list_mids[elimset]],
+					vsets[currentset].first + boundaries[currentset].second,
+					vsets[currentset].second - 1);
+			boundaries[currentset].second = list_mids[currentset] + 1;
+			if (boundaries[currentset].first > list_mids[currentset] - 1)
+				boundaries[currentset].first = list_mids[currentset] - 1;
+			if (vsets[currentset].first[list_mids[currentset]]
+					== vsets[elimset].first[list_mids[elimset]]) {
+				currentset++;
+				if (currentset == elimset)
+					currentset++;
+			} else {
+				elimset = currentset;
+				currentset = 0;
+			}
+		} else {
+			//TODO: boundary is negative
+			if (boundaries[currentset].first <= 0) {
+				left = false;
+				break;
+			}
+			list_mids[currentset] = FINDFUNCTION(
+					vsets[elimset].first[list_mids[elimset]],
+					vsets[currentset].first, boundaries[currentset].first);
+			boundaries[currentset].first = list_mids[currentset] - 1;
+			if (boundaries[currentset].second < list_mids[currentset] + 1)
+				boundaries[currentset].second = list_mids[currentset] + 1;
+			if (vsets[currentset].first[list_mids[currentset]]
+					== vsets[elimset].first[list_mids[elimset]]) {
+				currentset++;
+				if (currentset == elimset)
+					currentset++;
+			} else {
+				elimset = currentset;
+				currentset = 0;
+			}
+		}
+	}
+	if (left) {
+//
+	}
+	if (currentset = vsets.size()) {
+		*(*out)++ = vsets[0].first[list_mids[0]];
+		count++;
+	}
+	if (right) {
+//
+	}
+
+}
+
+template<intersectionfindfunction FINDFUNCTION>
+void BYH(const mySet &sets, std::vector<uint32_t> &out) {
+	out.resize(sets.begin()->size());
+	std::vector<std::pair<const uint32_t *, size_t /*end*/>> vsets;
+	uint32_t count = 0;
+	uint32_t* out_init = out.data();
 	uint32_t** pout = &out_init;
 
-	for (; it != sets.end(); it++) {
-		uint32_t count = 0;
-
-		BYintersect_sorted_rough<FINDFUNCTION>(it->data(), it->size() - 1,
-				intersection.data(), intersection.size() - 1, pout, count);
-		intersection.resize(count);
-
-		out_init = intersection.data();
-		pout = &out_init;
-	}
-	out.swap(intersection);
+	for (auto it = sets.begin(); it != sets.end(); it++)
+		vsets.emplace_back(it->data(), it->size());
+	BYintersect_holistic<FINDFUNCTION>(vsets, pout, count);
+	out.resize(count);
 }
 }
 #endif /* INCLUDE_MSIS_METHOD_HPP_ */

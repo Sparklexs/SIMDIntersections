@@ -75,13 +75,13 @@ long scalarGallop(UINT4 min, const UINT4 * array, long end) {
 	}
 
 	// else begin binary search
-	long mid = 0;
-	while (lower + 1 != upper) {
+	long mid;
+	while (lower < upper) {
 		mid = (lower + upper) / 2;
 		if (array[mid] == min) {
 			return mid;
 		} else if (array[mid] < min)
-			lower = mid;
+			lower = mid + 1;
 		else
 			upper = mid;
 	}

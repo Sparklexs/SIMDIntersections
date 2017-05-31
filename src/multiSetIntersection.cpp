@@ -217,7 +217,7 @@ void max_scalar(const mySet &sets, std::vector<uint32_t> &out) {
 }
 
 void BaezaYates_scalar(const mySet &sets, std::vector<uint32_t> &out) {
-	msis::BY_exact<msis::scalarBinarySearch>(sets, out);
+	msis::BY<msis::scalarBinarySearch>(sets, out);
 }
 
 typedef void (*intersectionFUNC)(const mySet &sets, std::vector<uint32_t> &out);
@@ -381,7 +381,6 @@ void intersect_for_json(bool loadfromfile) {
 ////								out);
 ////						msis::SvS_rough<msis::simdgallop_128_32_rough>(multiset,
 ////								out);
-//						std::cout << std::endl;
 //						if (out != final_intersection) {
 //							std::cerr << "bad result!  " << std::endl;
 //							return;
@@ -572,6 +571,14 @@ void intersect_traditional_methods(bool loadfromfile) {
 									1U << MaxBit, static_cast<float>(sr), ir);
 						}
 
+						// verification
+						auto it = multiset.begin();
+						vector<uint32_t> final_intersection = intersect(*it++,
+								*it++);
+						for (; it != multiset.end(); it++)
+							final_intersection = intersect(final_intersection,
+									*it);
+
 						// start scalar intersection
 						for (uint32_t j = 0; j < NUMSCALARFUNC; j++) {
 							timer.reset();
@@ -579,8 +586,13 @@ void intersect_traditional_methods(bool loadfromfile) {
 									++howmany) {
 								scalarFUNC[j](multiset, out);
 							}
-
 							times[NAMESCALARFUNC[j]] += timer.split();
+
+							if (out != final_intersection) {
+								std::cerr << "bad result!  " << std::endl;
+								return;
+							} else
+								printf("good!  ");
 						}
 						Schlegel(multiset, timer, times);
 
@@ -615,15 +627,15 @@ void intersect_my_methods(bool loadfromfile) {
 	size_t CASES = 20;
 
 	WallClockTimer timer;
-	vector<float> intersectionsratios = { /*0.10, 0.20, 0.30, 0.40, */0.50 /*, 0.60,
-	 0.70, 0.80, 0.90, 1.00 */};
-	vector<uint32_t> sizeratios = { /*1, 4, 8, 16, 32, 64, 128, 256,*/512, 1024,
+	vector<float> intersectionsratios = { 0.10, 0.20, 0.30, 0.40, 0.50, 0.60,
+			0.70, 0.80, 0.90, 1.00 };
+	vector<uint32_t> sizeratios = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
 			2048, 4096, 8192 };
 
 	FILE *pfile = fopen("output_mine.csv", "w+");
 	fprintf(pfile, "sr,ir,num,name,time\n");
 	std::map<std::string, size_t> times;
-	for (uint32_t msb = 10; msb <= 10; ++msb) {
+	for (uint32_t msb = 5; msb <= 10; ++msb) {
 		minlength = 1U << msb;
 
 		for (float ir : intersectionsratios) {
@@ -659,38 +671,6 @@ void intersect_my_methods(bool loadfromfile) {
 							multiset = genMultipleSets(cdg, minlength, num,
 									1U << MaxBit, static_cast<float>(sr), ir);
 						}
-
-						// verification
-//						auto it = multiset.begin();
-//						vector<uint32_t> final_intersection = intersect(*it++,
-//								*it++);
-//						for (; it != multiset.end(); it++)
-//							final_intersection = intersect(final_intersection,
-//									*it);
-//
-//						msis::max_exact<msis::simdgallop_128_exact>(multiset,
-//								out);
-//						msis::max_rough<msis::simdgallop_128_4_rough>(multiset,
-//								out);
-//						std::cout << std::endl;
-//
-//						msis::s_SvS_exact<msis::simdgallop_128_exact>(multiset,
-//								out);
-//						msis::s_SvS_rough<msis::simdgallop_128_32_rough>(
-//								multiset, out);
-//
-//						msis::SvS_exact<msis::simdgallop_128_exact>(multiset,
-//								out);
-//						msis::SvS_rough<msis::simdgallop_128_32_rough>(multiset,
-//								out);
-//
-//						svs_opt(multiset, out);
-//						Lemire_Gallop(multiset, out);
-//						if (out != final_intersection) {
-//							std::cerr << "bad result!  " << std::endl;
-//							return;
-//						} else
-//							printf("good!  ");
 
 //						timer.reset();
 //						for (uint32_t howmany = 0; howmany < REPETITION;
@@ -789,6 +769,151 @@ void intersect_my_methods(bool loadfromfile) {
 	fclose(pfile);
 }
 
+void intersect_BaezaYates(bool loadfromfile) {
+	using namespace msis;
+
+	vector<uint32_t> out;
+
+	uint32_t MaxBit = 8; // largest bit-length of element
+	uint32_t minlength;
+	size_t REPETITION = 1;
+	size_t CASES = 20;
+
+	WallClockTimer timer;
+	vector<float> intersectionsratios = { 0.10, 0.20, 0.30, 0.40, 0.50, 0.60,
+			0.70, 0.80, 0.90, 1.00 };
+	vector<uint32_t> sizeratios = { 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024,
+			2048, 4096, 8192 };
+
+	FILE *pfile = fopen("time_BaezaYates.csv", "w+");
+	fprintf(pfile, "sr,ir,num,name,time\n");
+	std::map<std::string, size_t> times;
+	for (uint32_t msb = 3; msb <= 10; ++msb) {
+		minlength = 1U << msb;
+
+		for (float ir : intersectionsratios) {
+			printf("intersection ratio: \e[32m%3.0f%%\e[0m\n", ir * 100);
+			for (uint32_t sr : sizeratios) {
+				printf("  size ratio: \e[32m%4d\e[0m\n", sr);
+				if (sr > 1000)
+					REPETITION = 1000;
+				else
+					REPETITION = 2000;
+				for (uint32_t num = 2; num < 11; num++) {
+					times["binary"] = 0;
+					times["gallop"] = 0;
+					times["v3"] = 0;
+					times["v3_gallop"] = 0;
+					time_t t = time(nullptr);
+					tm* _tm = localtime(&t);
+					printf("%02d:%02d:%02d> num: \e[32m%2d\e[0m  ",
+							_tm->tm_hour, _tm->tm_min, _tm->tm_sec, num);
+
+					for (uint32_t k = 0; k < CASES; k++) {
+						mySet multiset;
+						if (loadfromfile)
+							multiset = Set_collection::load_set(ir, sr, num, k);
+						else {
+							ClusteredDataGenerator cdg;
+							multiset = genMultipleSets(cdg, minlength, num,
+									1U << MaxBit, static_cast<float>(sr), ir);
+						}
+						multiset.clear();
+						multiset.insert( { 19, 34, 51, 60, 94, 135, 173, 214 });
+						multiset.insert(
+								{ 56, 136, 172, 184, 186, 196, 206, 214 });
+						multiset.insert(
+								{ 31, 201, 213, 214, 215, 223, 233, 245 });
+						// verification
+						auto it = multiset.begin();
+						vector<uint32_t> final_intersection = intersect(*it++,
+								*it++);
+						for (; it != multiset.end(); it++)
+							final_intersection = intersect(final_intersection,
+									*it);
+
+						msis::BYH<msis::scalarBinarySearch>(multiset, out);
+						if (out != final_intersection) {
+							std::cerr << "bad result!  " << std::endl;
+							return;
+						} else
+							printf("good!  ");
+						msis::BYH<msis::scalarGallop>(multiset, out);
+						if (out != final_intersection) {
+							std::cerr << "bad result!  " << std::endl;
+							return;
+						} else
+							printf("good!  ");
+						msis::BYH<Intersection_find_v3>(multiset, out);
+						if (out != final_intersection) {
+							std::cerr << "bad result!  " << std::endl;
+							return;
+						} else
+							printf("good!  ");
+						msis::BYH<Intersection_find_simdgallop_v3>(multiset,
+								out);
+						if (out != final_intersection) {
+							std::cerr << "bad result!  " << std::endl;
+							return;
+						} else
+							printf("good!  ");
+
+//						timer.reset();
+//						for (uint32_t howmany = 0; howmany < REPETITION;
+//								++howmany) {
+//							msis::BYH<msis::scalarBinarySearch>(multiset, out);
+//						}
+//						times["gallop"] += timer.split();
+//
+//						timer.reset();
+//						for (uint32_t howmany = 0; howmany < REPETITION;
+//								++howmany) {
+//							msis::BY<msis::scalarBinarySearch>(multiset, out);
+//						}
+//						times["binary"] += timer.split();
+//
+//						timer.reset();
+//						for (uint32_t howmany = 0; howmany < REPETITION;
+//								++howmany) {
+//							msis::BY<msis::scalarGallop>(multiset, out);
+//						}
+//						times["gallop"] += timer.split();
+//
+//						timer.reset();
+//						for (uint32_t howmany = 0; howmany < REPETITION;
+//								++howmany) {
+//							msis::BY<Intersection_find_v3>(multiset, out);
+//						}
+//						times["v3"] += timer.split();
+//
+//						timer.reset();
+//						for (uint32_t howmany = 0; howmany < REPETITION;
+//								++howmany) {
+//							msis::BY<Intersection_find_simdgallop_v3>(multiset,
+//									out);
+//						}
+//						times["v3_gallop"] += timer.split();
+
+					} // for CASES
+					for (auto time : times) {
+						if (time.second != 0) {
+							printf("%s: \e[31m%6.2f\e[0m  ", time.first.c_str(),
+									(double) time.second / REPETITION / CASES);
+							fprintf(pfile, "%d,%.0f,%d,%s,%.0f\n", sr, ir * 100,
+									num, time.first.c_str(),
+									(double) time.second / REPETITION / CASES);
+						} // if !=0
+					} // for times
+					printf("\n");
+					fflush(pfile);
+					fflush(stdout);
+				} // for num
+			} // for size-ratio
+		} // for intersection-ratio
+	} // for minlength
+	fclose(pfile);
+}
+
 int main(int argc, char **argv) {
 	int c;
 	bool loadfromfile = false;
@@ -804,7 +929,8 @@ int main(int argc, char **argv) {
 	else
 		std::cout << "generate sets in runtime!" << std::endl;
 
+	intersect_BaezaYates(loadfromfile);
 //	intersect_for_json(loadfromfile);
-	intersect_my_methods(loadfromfile);
+//	intersect_my_methods(loadfromfile);
 //	intersect_traditional_methods(loadfromfile);
 }
